@@ -5,18 +5,14 @@ Codename: stable
 Architectures: amd64 all
 Components: main
 Description: FSpotify music player packages
-Date: Tue, 13 Oct 2026 16:20:20 +0000
+Date: Tue, 13 Oct 2026 16:25:58 +0000
 MD5Sum:
- 6cc11279ea432076b7df0ba647db30c4          642 dists/stable/main/binary-all/Packages
- 77f4834e5cea0e127712f6b776e54b33          451 dists/stable/main/binary-all/Packages.gz
- 5727f37ef21dc48bcd59e18ae750279d          532 dists/stable/main/binary-all/Packages.xz
- 6cc11279ea432076b7df0ba647db30c4          642 dists/stable/main/binary-amd64/Packages
- 77f4834e5cea0e127712f6b776e54b33          451 dists/stable/main/binary-amd64/Packages.gz
- 5727f37ef21dc48bcd59e18ae750279d          532 dists/stable/main/binary-amd64/Packages.xz
+ 5b9c0c23cab3ec69fccf1d629e8394e3          642 dists/stable/main/binary-all/Packages
+ 38066a3598f6a4e53409fbdf3793b01b          453 dists/stable/main/binary-all/Packages.gz
+ 5b9c0c23cab3ec69fccf1d629e8394e3          642 dists/stable/main/binary-amd64/Packages
+ 38066a3598f6a4e53409fbdf3793b01b          453 dists/stable/main/binary-amd64/Packages.gz
 SHA256:
- 7eadf75b773f6231ad67fec7309a6e9937115964bfbeb573ec7b013639b53d06          642 dists/stable/main/binary-all/Packages
- 4b3b0340691772f9394ecdca639f4d82ebfac25a80e712bd04859f1d289d3b07          451 dists/stable/main/binary-all/Packages.gz
- 3698c4e7ae059255c763d987cb471dffa404ccd079b9cd31c36ec4ae35ca82c3          532 dists/stable/main/binary-all/Packages.xz
- 7eadf75b773f6231ad67fec7309a6e9937115964bfbeb573ec7b013639b53d06          642 dists/stable/main/binary-amd64/Packages
- 4b3b0340691772f9394ecdca639f4d82ebfac25a80e712bd04859f1d289d3b07          451 dists/stable/main/binary-amd64/Packages.gz
- 3698c4e7ae059255c763d987cb471dffa404ccd079b9cd31c36ec4ae35ca82c3          532 dists/stable/main/binary-amd64/Packages.xz
+ ac3b14f65766a7645415835cd1e50240526bce06c9195eed5a4adeb4f05aea22          642 dists/stable/main/binary-all/Packages
+ 12961af8a75aa2e6feaf91f34069609c13470d57df87c9c8b5824b3d252018b3          453 dists/stable/main/binary-all/Packages.gz
+ ac3b14f65766a7645415835cd1e50240526bce06c9195eed5a4adeb4f05aea22          642 dists/stable/main/binary-amd64/Packages
+ 12961af8a75aa2e6feaf91f34069609c13470d57df87c9c8b5824b3d252018b3          453 dists/stable/main/binary-amd64/Packages.gz

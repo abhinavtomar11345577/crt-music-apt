@@ -4,10 +4,10 @@ Architecture: all
 Maintainer: Abhinav Tomar <abhinavtomar2087@gmail.com>
 Depends: python3 (>= 3.9), mpv, yt-dlp
 Filename: pool/main/c/crt-music/crt-music_1.0.0_all.deb
-Size: 707776
-MD5sum: c90f26efc555529e67a196bb029907d1
-SHA1: e456a5c17ab0a67e2930dfd724eaca0911161f52
-SHA256: 1600c6e636f752ec98c4c98e1971112d57d12025f54ae7fdb50e0dc8d33b8b17
+Size: 707772
+MD5sum: 78112b6b9b17d68664bfb12565ffef32
+SHA1: 298f8a742b264d133d000c716ae6f49a9d27a6b9
+SHA256: e0255e6972d58a5c447424f1c73983339e0cb2476d7780c9df41bf94936e00e9
 Section: sound
 Priority: optional
 Description: terminal music and internet radio player

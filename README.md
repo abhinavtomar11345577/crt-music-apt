@@ -9,7 +9,5 @@ Install FSpotify on Debian or Ubuntu:
     sudo apt update
     sudo apt install crt-music
 
-The package installs the  command and a desktop entry. It depends
-on Python 3, mpv, and yt-dlp. Remove it with Reading package lists...
-Building dependency tree...
-Reading state information....
+The package installs the crt-music command and a desktop entry. It depends
+on Python 3, mpv, and yt-dlp. Remove it with: sudo apt remove crt-music.
