@@ -15,7 +15,7 @@ key_file=$(mktemp)
 trap 'rm -f "$key_file"' EXIT
 curl -fsSL "$REPOSITORY/apt-key.asc" -o "$key_file"
 $SUDO gpg --dearmor --yes -o "$KEYRING" "$key_file"
-printf 'deb [signed-by=%s] %s stable main\n' "$KEYRING" "$REPOSITORY" \
+printf 'deb [arch=all signed-by=%s] %s stable main\n' "$KEYRING" "$REPOSITORY" \
     | $SUDO tee "$SOURCES" >/dev/null
 $SUDO apt-get update
 $SUDO apt-get install -y crt-music
