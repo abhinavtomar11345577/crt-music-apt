@@ -5,14 +5,14 @@ Codename: stable
 Architectures: amd64 all
 Components: main
 Description: FSpotify music player packages
-Date: Tue, 13 Oct 2026 16:25:58 +0000
+Date: Tue, 13 Oct 2026 16:29:13 +0000
 MD5Sum:
- 5b9c0c23cab3ec69fccf1d629e8394e3          642 dists/stable/main/binary-all/Packages
- 38066a3598f6a4e53409fbdf3793b01b          453 dists/stable/main/binary-all/Packages.gz
- 5b9c0c23cab3ec69fccf1d629e8394e3          642 dists/stable/main/binary-amd64/Packages
- 38066a3598f6a4e53409fbdf3793b01b          453 dists/stable/main/binary-amd64/Packages.gz
+ 14ed3885a77828771992ed35eec1b60d          642 dists/stable/main/binary-all/Packages
+ 97ba676ca0b3565baa032cca115d8acf          452 dists/stable/main/binary-all/Packages.gz
+ 14ed3885a77828771992ed35eec1b60d          642 dists/stable/main/binary-amd64/Packages
+ 97ba676ca0b3565baa032cca115d8acf          452 dists/stable/main/binary-amd64/Packages.gz
 SHA256:
- ac3b14f65766a7645415835cd1e50240526bce06c9195eed5a4adeb4f05aea22          642 dists/stable/main/binary-all/Packages
- 12961af8a75aa2e6feaf91f34069609c13470d57df87c9c8b5824b3d252018b3          453 dists/stable/main/binary-all/Packages.gz
- ac3b14f65766a7645415835cd1e50240526bce06c9195eed5a4adeb4f05aea22          642 dists/stable/main/binary-amd64/Packages
- 12961af8a75aa2e6feaf91f34069609c13470d57df87c9c8b5824b3d252018b3          453 dists/stable/main/binary-amd64/Packages.gz
+ e6d4e417299bbcdab4767e247c0659ad25028ddb2fbfe2236c19657036e30515          642 dists/stable/main/binary-all/Packages
+ 0a859d492bba03a4c53ef9aa126ecb8521c1732cda81b39a89c9b4fb8edaa322          452 dists/stable/main/binary-all/Packages.gz
+ e6d4e417299bbcdab4767e247c0659ad25028ddb2fbfe2236c19657036e30515          642 dists/stable/main/binary-amd64/Packages
+ 0a859d492bba03a4c53ef9aa126ecb8521c1732cda81b39a89c9b4fb8edaa322          452 dists/stable/main/binary-amd64/Packages.gz
