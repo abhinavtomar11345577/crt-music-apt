@@ -5,10 +5,10 @@ Codename: stable
 Architectures: all
 Components: main
 Description: FSpotify music player packages
-Date: Tue, 13 Oct 2026 11:48:23 +0000
+Date: Tue, 13 Oct 2026 11:50:58 +0000
 MD5Sum:
- 9da15830ba9018ef0f381cc8aeaf068d          710 dists/stable/main/binary-all/Packages
- 5015f431e0f89f47b9427f99855f2002          491 dists/stable/main/binary-all/Packages.gz
+ 5573d542eb1d20898cb01976817328bf          642 dists/stable/main/binary-all/Packages
+ eadd657ba2ddc5fadb156bbacf118e08          451 dists/stable/main/binary-all/Packages.gz
 SHA256:
- 6acf4ef1b5a115775593872caca2b73356ffbe752290c09790be6502c6db3290          710 dists/stable/main/binary-all/Packages
- 7bd7f6f251194ad4567ec0e62ef0ebcb69ab109b09f34f4b5d7c9e54c267b73b          491 dists/stable/main/binary-all/Packages.gz
+ ad0b68160c131d2026e3b45e869c7b662bf58a8fda2533acff370dcbd1ae6330          642 dists/stable/main/binary-all/Packages
+ d1b5a49082b156d0f0d8aff42df101c1a6299787f2e2de4d2fca3c98afabfcbe          451 dists/stable/main/binary-all/Packages.gz

@@ -3,11 +3,11 @@ Version: 1.0.0
 Architecture: all
 Maintainer: Abhinav Tomar <abhinavtomar2087@gmail.com>
 Depends: python3 (>= 3.9), mpv, yt-dlp
-Filename: /home/abhinav2087/Projects/musicplayer/FSpotify-linux/apt-repo/docs/pool/main/c/crt-music/crt-music_1.0.0_all.deb
-Size: 707612
-MD5sum: 74049f5130b98b522af49f822f4879b1
-SHA1: c5fce1406353b0b21f9ef721df97e8b348e9c4b3
-SHA256: 2965d4b1840f0da2309cd5c5cbb6a57ef382f84e9b192c95ffc3146089da7c64
+Filename: pool/main/c/crt-music/crt-music_1.0.0_all.deb
+Size: 707596
+MD5sum: 49986caccbd5f3c52c29c31487999396
+SHA1: 756a5ab034be3d4ccae207948488a43636ebfdd5
+SHA256: d0ea85c0275b467aa1217d2dee2165f8221a9b302390ef35bb6cecc19deb2cd5
 Section: sound
 Priority: optional
 Description: terminal music and internet radio player
