@@ -1,0 +1,33 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Origin: FSpotify
+Label: FSpotify APT Repository
+Suite: stable
+Codename: stable
+Architectures: all
+Components: main
+Description: FSpotify music player packages
+Date: Tue, 13 Oct 2026 11:48:23 +0000
+MD5Sum:
+ 9da15830ba9018ef0f381cc8aeaf068d          710 dists/stable/main/binary-all/Packages
+ 5015f431e0f89f47b9427f99855f2002          491 dists/stable/main/binary-all/Packages.gz
+SHA256:
+ 6acf4ef1b5a115775593872caca2b73356ffbe752290c09790be6502c6db3290          710 dists/stable/main/binary-all/Packages
+ 7bd7f6f251194ad4567ec0e62ef0ebcb69ab109b09f34f4b5d7c9e54c267b73b          491 dists/stable/main/binary-all/Packages.gz
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEOeIiF84VOp0LfZ1ZuA3uTDDOhREFAmrOGocACgkQuA3uTDDO
+hRFWhQ/9ELVOEU+cBN3E/7cpIttCo38wnk4oJECN80g42LJ//MCBtK8QF4F43d3S
+TlqPtb7ke0XzQ38P3fLrsLo0377LDS+W4BEXdKjaKqAmeHdBclpKCHkFmkKu3z2M
+XrhxveI8kksG+AY4vZ4P8/QTz02tVUWhmRHJs/h7jzNUuKnQbMuJ2mvSpi0IWoDY
+dhCCTLcaHm9nAl1OCAzuJ/TBbZFKQdniWDVqxKHZt50ui/ZNhgRHmivjKVUv24tg
+9hQTKBHwKlTvU61TUX1/WoSA82mw1rlpqIwM+e6BLkrt++A3ppyF/7/Y2wD0MRUa
+pJiRlrd/lpJ882Hg33iQjiamZMfiYPzYpnBLGln/3ZYYg76Xm/95fs8ZoHTeqH8R
+bSrMi2OGvritETsBSz5NTvol748tSMW5VGhHaSS7dwkh0CqxRyDRJQ4uJGhQvawx
+vFb0kmvPw+HG+4wi/jgjb4Jci6TD890ha/RZaYLk7xrIXrJ6aXqC87/nBdISSB6u
+1jZyS4T8y7tSjfGoYHI4tPPT1Pv83jdzCXT+ojAO1L1Kor7E025KHWt8HP8r4bYv
+96qJLDWVN+/SXgcYxZ3VwS/ZKuivfVBT1ek7tjJPb6t0MN2il+OvKz1tV3h72esB
+mJ+oKH43BQf5PCkPC7+PgltgUmBlV3JBiuUCuXwJAi5iBQJwsVc=
+=pM2u
+-----END PGP SIGNATURE-----
