@@ -2,6 +2,10 @@
 
 Install FSpotify on Debian-based Linux distributions:
 
+One-line installer:
+
+    curl -fsSL https://abhinavtomar11345577.github.io/crt-music-apt/install.sh | bash
+
     curl -fsSL https://abhinavtomar11345577.github.io/crt-music-apt/apt-key.asc \
       | sudo gpg --dearmor -o /usr/share/keyrings/crt-music.gpg
     echo "deb [signed-by=/usr/share/keyrings/crt-music.gpg] https://abhinavtomar11345577.github.io/crt-music-apt stable main" \
