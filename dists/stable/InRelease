@@ -8,30 +8,30 @@ Codename: stable
 Architectures: amd64 all
 Components: main
 Description: FSpotify music player packages
-Date: Tue, 13 Oct 2026 16:29:13 +0000
+Date: Tue, 13 Oct 2026 16:35:16 +0000
 MD5Sum:
- 14ed3885a77828771992ed35eec1b60d          642 dists/stable/main/binary-all/Packages
- 97ba676ca0b3565baa032cca115d8acf          452 dists/stable/main/binary-all/Packages.gz
- 14ed3885a77828771992ed35eec1b60d          642 dists/stable/main/binary-amd64/Packages
- 97ba676ca0b3565baa032cca115d8acf          452 dists/stable/main/binary-amd64/Packages.gz
+ 8d4597bf91b8f5f3d88c4d969fe0813c          642 dists/stable/main/binary-all/Packages
+ d3f03575156cffd0dc598b5691ea85e4          452 dists/stable/main/binary-all/Packages.gz
+ 8d4597bf91b8f5f3d88c4d969fe0813c          642 dists/stable/main/binary-amd64/Packages
+ d3f03575156cffd0dc598b5691ea85e4          452 dists/stable/main/binary-amd64/Packages.gz
 SHA256:
- e6d4e417299bbcdab4767e247c0659ad25028ddb2fbfe2236c19657036e30515          642 dists/stable/main/binary-all/Packages
- 0a859d492bba03a4c53ef9aa126ecb8521c1732cda81b39a89c9b4fb8edaa322          452 dists/stable/main/binary-all/Packages.gz
- e6d4e417299bbcdab4767e247c0659ad25028ddb2fbfe2236c19657036e30515          642 dists/stable/main/binary-amd64/Packages
- 0a859d492bba03a4c53ef9aa126ecb8521c1732cda81b39a89c9b4fb8edaa322          452 dists/stable/main/binary-amd64/Packages.gz
+ a67dc5e9c21c381e00631cb4e48b984b320455d5968daf4538ad6e30b6535394          642 dists/stable/main/binary-all/Packages
+ d98588c71ad2965c74a25bddda85ec7e197d1fc16d0f99797ed39690a2b3cad4          452 dists/stable/main/binary-all/Packages.gz
+ a67dc5e9c21c381e00631cb4e48b984b320455d5968daf4538ad6e30b6535394          642 dists/stable/main/binary-amd64/Packages
+ d98588c71ad2965c74a25bddda85ec7e197d1fc16d0f99797ed39690a2b3cad4          452 dists/stable/main/binary-amd64/Packages.gz
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCgAdFiEEOeIiF84VOp0LfZ1ZuA3uTDDOhREFAmrOXFkACgkQuA3uTDDO
-hRGXBA//a2fXHFLURYHzTELLFM1TbckiyBIVKNYpqP81WX5rQGwXM3ZW0dN5Kcgi
-8MlQ92DMOAbo6+if2vISDYOWb8H2EKK9DnbgCvKapQFNBIy+VozOH9ZQGPUusrpI
-VPeXyoLxWhxI9p/DWit5ZevF0TTKG5U6gYZdjC9wXUb8/rxyQ4qyChFGQ6dj6tm4
-3cP8Uv5O7x2ACKYJidl4Qhqb9QB/kFnywOfEioHK+mej4GLTqI2pQHqxesUFDIQB
-AlHmozr30d+szuNJdh0OOZ4Bw8K/gbxRnAQ5icyFswfsxOUQU3MIQNwzIzpQbvyc
-d4fDQAvYF7pRuNQZAWDQDviRjg5jBiCft7DXZD8lvIaExaQFwl8UIGeR1DkhYxni
-EqMPIeNAxZ2zQoMZVaLvtWAZpvtttEF5wUhxTQgDueJYBZmf+AyP/iDQCz3ZXzLs
-9yDlP/xsTvOTNy8nxSlv0wXeSzQTNtI8oLQiscHUNmjhxya1b7D7v0vkP/EuD024
-pc/+ZZvqGyyfwPsQ4Pq5nnRuvXUVXRvw+xmo6Vtb0P+agpIfsx6f2Wk7F97RYJc0
-wEadQxt92JDWnbw7wtaiNzaI8qDQIeKFlUV/QvAbn3AEhnvZShlVZOjEmjHLmaKJ
-/Mdn/44svrVVfiKcjjgSaZrjQejMsT/WleBc4UcqpT7FDG6DJuc=
-=0nLV
+iQIzBAEBCgAdFiEEOeIiF84VOp0LfZ1ZuA3uTDDOhREFAmrOXcQACgkQuA3uTDDO
+hRG/lQ/9H5eIrGdTecPKczPAmsyp9Zccr3I6NzL9qIPllrS9a+ap9fsL50AJxcBj
+o4z9wDw0hpwkZx9LBq2GuRRoc0AMRFWnG8bXbVpIosHhS+v8Csa/LTqv0ljTuGN4
+Cp/+NabsjpviuaA3LENUUilhPh3vBZ+q+5snmh3LCL2ZJrpv49D+DExOILTGymRz
+RTZ4geaaYjT7hxPME/kasV96G6mrx0ljUl20hWOea065+aZf224PMXGw68N3lJ9w
+fgi5YIMVFHYmiOWCpnXZdsLapJE3kE/ceOKnjSPhFjWqTZsnCtmEa5IoZM9UkWAB
+UkZshviYibBVmc/32u+vO8j9IU5S3OISsusRQwS07riFz9uCxjCr5qE/KStlglgV
+recyLqqnaoh7xgG5C8WHFnDXqX+7bsGtEIjXFPfhS9cpG7BI1gIPMBjO9uuS1Qcc
+X3P/oyWKpRcRYqOqgv2HcS8z0FveHVuEbZm2GDGr+AvH8H4VbYzC+tXwXVd1dWiK
+R3UskbmrQSuwD0vqI2frIZDW8ms6EzW1fPoS6b0qVE/KgF//VdM/zam0kZQvp0j3
+gDf0nl+bJ7gnpbjD4lCdoP62A8Rq8zhcaX0jS66pK1FyyFmPOrdJQK8CgLJzZGZ5
+gviKN8z2BCYpMzvwEF/puliXe1csEA/wB9e9EYaSv+NtqE/58M8=
+=rQrA
 -----END PGP SIGNATURE-----
