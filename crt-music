@@ -1,0 +1,1643 @@
+#!/usr/bin/env python3
+"""FSpotify: search and stream YouTube audio inside a CRT-shader terminal.
+
+Runs on Linux, macOS and Windows. Everything outside the Python standard
+library is optional at import time: the player needs mpv to play audio and
+yt-dlp to search YouTube, and says so instead of failing if one is missing.
+"""
+import os
+# Must be set before curses starts the terminal: see crt-pong/crt-snake for why.
+os.environ.setdefault("ESCDELAY", "10")
+
+import itertools
+import json
+import locale
+import platform
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import urllib.parse
+import urllib.request
+
+# Windows has no curses in its standard library; the windows-curses package
+# supplies it. Import softly so --check and --version can explain what is
+# missing rather than dying with a traceback.
+try:
+    import curses
+except ImportError:  # pragma: no cover - depends on the platform
+    curses = None
+
+VERSION = "1.1.0"
+IS_WINDOWS = os.name == "nt"
+IS_MACOS = sys.platform == "darwin"
+
+
+def app_bin_dir():
+    """Private bin directory the installers use when no package manager can
+    provide mpv or yt-dlp."""
+    if IS_WINDOWS:
+        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+        return os.path.join(base, "crt-music", "bin")
+    base = os.environ.get("XDG_DATA_HOME") or os.path.join(
+        os.path.expanduser("~"), ".local", "share")
+    return os.path.join(base, "crt-music", "bin")
+
+
+def _extend_path():
+    """Make mpv and yt-dlp findable when the app is started from an icon.
+
+    A desktop entry, Dock icon or Start-menu shortcut runs with a minimal
+    PATH: on macOS that misses Homebrew entirely, on Windows it misses the
+    scoop/choco/winget shim directories, and everywhere it misses the private
+    directory above.
+    """
+    extra = [app_bin_dir()]
+    if not IS_WINDOWS:
+        # Also the default location, in case XDG_DATA_HOME was set after the
+        # installer put a helper in the standard one.
+        extra.append(os.path.join(os.path.expanduser("~"), ".local", "share",
+                                  "crt-music", "bin"))
+    if IS_WINDOWS:
+        local = os.environ.get("LOCALAPPDATA", "")
+        progdata = os.environ.get("ProgramData", "")
+        home = os.path.expanduser("~")
+        extra += [
+            os.path.join(local, "Microsoft", "WinGet", "Links"),
+            os.path.join(home, "scoop", "shims"),
+            os.path.join(progdata, "chocolatey", "bin"),
+        ]
+    else:
+        extra += [
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/opt/local/bin",
+            os.path.join(os.path.expanduser("~"), ".local", "bin"),
+        ]
+    path = os.environ.get("PATH", "").split(os.pathsep)
+    # Reversed, so that the first entry of `extra` ends up first on PATH:
+    # a fresh yt-dlp in the private directory must win over the distribution's,
+    # which is usually years old and no longer works with YouTube.
+    for directory in reversed(extra):
+        if directory and directory not in path and os.path.isdir(directory):
+            path.insert(0, directory)
+    os.environ["PATH"] = os.pathsep.join(p for p in path if p)
+
+
+_extend_path()
+
+
+def _child_kwargs():
+    """Keep helper programs from flashing a console window on Windows."""
+    if IS_WINDOWS:
+        return {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
+    return {}
+
+
+def tool_path(name):
+    """Absolute path to mpv/yt-dlp, or None. shutil.which handles .exe for us."""
+    return shutil.which(name)
+
+
+# YouTube changes how it serves streams every few months and only a current
+# yt-dlp keeps up: an older one still searches (search needs no stream
+# extraction) but cannot play anything. Anything older than this is reported
+# as the cause rather than left to look like a broken player. Bump it when
+# cutting a release.
+MIN_YTDLP = 20260101
+YTDLP_RELEASE = "https://github.com/yt-dlp/yt-dlp/releases/latest/download"
+
+
+def ytdlp_asset():
+    """Name of the standalone yt-dlp build for this machine."""
+    machine = (platform.machine() or "").lower()
+    if IS_WINDOWS:
+        return "yt-dlp.exe"
+    if IS_MACOS:
+        return "yt-dlp_macos"
+    if machine in ("x86_64", "amd64"):
+        return "yt-dlp_linux"
+    if machine in ("aarch64", "arm64"):
+        return "yt-dlp_linux_aarch64"
+    if machine.startswith("armv7"):
+        return "yt-dlp_linux_armv7l"
+    return "yt-dlp"  # the portable zipapp: slower to start, runs on python3
+
+
+def ytdlp_version():
+    """(YYYYMMDD as an int, raw string) for the yt-dlp in use, or (None, None)."""
+    found = tool_path("yt-dlp")
+    if not found:
+        return None, None
+    try:
+        out = subprocess.run(
+            [found, "--version"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=20,
+            **_child_kwargs(),
+        )
+    except Exception:
+        return None, None
+    lines = (out.stdout or "").strip().splitlines()
+    raw = lines[0].strip() if lines else ""
+    match = re.match(r"^(\d{4})\.(\d{2})\.(\d{2})", raw)
+    if not match:
+        return None, raw or None
+    return int("".join(match.groups())), raw
+
+
+def ytdlp_is_stale():
+    number, _ = ytdlp_version()
+    return number is not None and number < MIN_YTDLP
+
+
+def ytdlp_warning():
+    """One line naming the yt-dlp problem, or None when it is fine."""
+    number, raw = ytdlp_version()
+    if not tool_path("yt-dlp"):
+        return "yt-dlp is missing: YouTube search and playback will not work"
+    if number is not None and number < MIN_YTDLP:
+        return ("yt-dlp %s is too old for YouTube: quit and run  crt-music --update-ytdlp"
+                % raw)
+    return None
+
+
+def update_ytdlp():
+    """Install the current standalone yt-dlp into our own bin directory.
+
+    It goes there rather than over the packaged one: no root needed, nothing
+    the package manager owns is touched, and the player puts that directory
+    first on PATH, so the fresh build wins over a stale system copy.
+    """
+    asset = ytdlp_asset()
+    url = "%s/%s" % (YTDLP_RELEASE, asset)
+    target_dir = app_bin_dir()
+    target = os.path.join(target_dir, "yt-dlp.exe" if IS_WINDOWS else "yt-dlp")
+    print("Downloading %s" % url)
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+        request = urllib.request.Request(url, headers={"User-Agent": "FSpotify/%s" % VERSION})
+        with urllib.request.urlopen(request, timeout=120) as response:
+            data = response.read()
+    except Exception as exc:
+        print("could not download yt-dlp: %s" % exc)
+        print("Download it yourself from https://github.com/yt-dlp/yt-dlp/releases")
+        return 1
+    if len(data) < 100000:
+        print("the download looks truncated (%d bytes); try again" % len(data))
+        return 1
+    temp = target + ".new"
+    try:
+        with open(temp, "wb") as handle:
+            handle.write(data)
+        os.chmod(temp, 0o755)
+        os.replace(temp, target)   # atomic: never leaves a half-written yt-dlp
+    except OSError as exc:
+        print("could not write %s: %s" % (target, exc))
+        return 1
+    print("Installed %s" % target)
+    # _extend_path() skipped this directory if it did not exist when the
+    # process started, so put it on PATH now to report the new version.
+    if target_dir not in os.environ.get("PATH", "").split(os.pathsep):
+        os.environ["PATH"] = target_dir + os.pathsep + os.environ.get("PATH", "")
+    number, raw = ytdlp_version()
+    if raw:
+        print("yt-dlp is now %s" % raw)
+    if number is not None and number < MIN_YTDLP:
+        print("warning: that is still older than expected; check your network")
+    return 0
+
+
+def install_hint(tool):
+    """One line telling the user how to install a missing helper here."""
+    if IS_WINDOWS:
+        package = "shinchiro.mpv" if tool == "mpv" else "yt-dlp.yt-dlp"
+        return "  winget install " + package
+    if IS_MACOS:
+        return "  brew install " + tool
+    for manager, command in (
+        ("apt-get", "sudo apt install"),
+        ("dnf", "sudo dnf install"),
+        ("pacman", "sudo pacman -S"),
+        ("zypper", "sudo zypper install"),
+        ("apk", "doas apk add"),
+        ("xbps-install", "sudo xbps-install -S"),
+        ("emerge", "sudo emerge"),
+        ("eopkg", "sudo eopkg install"),
+    ):
+        if shutil.which(manager):
+            return "  %s %s" % (command, tool)
+    return "  install %s with your package manager" % tool
+
+TICK = 1 / 20.0
+SPEED_MIN, SPEED_MAX, SPEED_STEP = 0.5, 2.0, 0.1
+EQ_MIN, EQ_MAX, EQ_STEP = -12, 12, 1
+VOL_MIN, VOL_MAX, VOL_STEP = 0, 130, 5
+SEEK_STEP = 10
+RADIO_LIMIT = 40
+RADIO_API_SERVERS = (
+    "https://de1.api.radio-browser.info",
+    "https://nl1.api.radio-browser.info",
+    "https://us1.api.radio-browser.info",
+)
+RED_FM_NETWORK_STREAM = "https://funasia.streamguys1.com/live9"
+
+
+def clamp(v, lo, hi):
+    return max(lo, min(hi, v))
+
+
+def fmt_time(seconds):
+    if seconds is None:
+        return "--:--"
+    seconds = int(seconds)
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+def trunc(s, n):
+    if n <= 0:
+        return ""
+    if len(s) <= n:
+        return s
+    return s[: max(0, n - 1)] + "…"
+
+
+class MPV:
+    """Talks to a headless mpv over its JSON IPC channel.
+
+    That channel is a Unix domain socket on Linux and macOS and a named pipe
+    on Windows, so the two are wrapped behind _send/_recv. Replies arrive on a
+    reader thread and are handed to whoever is waiting for that request id;
+    a pipe cannot be polled with a timeout the way a socket can, and one
+    reader keeps both platforms on the same code path.
+    """
+
+    def __init__(self):
+        if IS_WINDOWS:
+            self.sock_path = r"\\.\pipe\crt-music-%d" % os.getpid()
+        else:
+            self.sock_path = os.path.join(tempfile.gettempdir(), f"crt-music-{os.getpid()}.sock")
+        argv = [
+            tool_path("mpv") or "mpv",
+            "--no-video",
+            "--idle=yes",
+            "--keep-open=yes",
+            "--no-terminal",
+            "--ytdl-format=bestaudio/best",
+            f"--input-ipc-server={self.sock_path}",
+        ]
+        # mpv resolves YouTube pages with its own copy of yt-dlp, found on
+        # its PATH. Hand it the exact one the player checked instead: on
+        # Debian and Ubuntu the packaged yt-dlp is years old and can no
+        # longer extract a stream, so this is the difference between every
+        # track playing and every track failing to load.
+        ytdlp = tool_path("yt-dlp")
+        if ytdlp:
+            argv.append(f"--script-opts=ytdl_hook-ytdl_path={ytdlp}")
+        self.proc = subprocess.Popen(
+            argv,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            **_child_kwargs(),
+        )
+        self._conn = None
+        self._lock = threading.Lock()
+        self._req_id = itertools.count(1)
+        self._cv = threading.Condition()
+        self._pending = set()
+        self._responses = {}
+        self._closed = False
+        self._connect()
+        self._reader = threading.Thread(target=self._read_loop, daemon=True)
+        self._reader.start()
+
+    def _connect(self):
+        for _ in range(50):
+            try:
+                if IS_WINDOWS:
+                    # mpv creates the pipe; opening it is the connect step,
+                    # and it simply fails until mpv is ready.
+                    self._conn = open(self.sock_path, "r+b", buffering=0)
+                    return
+                if os.path.exists(self.sock_path):
+                    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    s.connect(self.sock_path)
+                    self._conn = s
+                    return
+            except OSError:
+                pass
+            time.sleep(0.1)
+        raise RuntimeError("could not connect to mpv's IPC socket")
+
+    def _send(self, data):
+        if IS_WINDOWS:
+            self._conn.write(data)
+            self._conn.flush()
+        else:
+            self._conn.sendall(data)
+
+    def _recv(self):
+        # One read call each time: both an unbuffered pipe and a socket return
+        # whatever has arrived rather than waiting for the full 4096 bytes.
+        if IS_WINDOWS:
+            return self._conn.read(4096)
+        return self._conn.recv(4096)
+
+    def _read_loop(self):
+        buf = b""
+        while True:
+            try:
+                chunk = self._recv()
+            except Exception:
+                chunk = b""
+            if not chunk:
+                break
+            buf += chunk
+            while b"\n" in buf:
+                line, buf = buf.split(b"\n", 1)
+                if not line.strip():
+                    continue
+                try:
+                    msg = json.loads(line)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    continue
+                rid = msg.get("request_id")
+                if rid is None:
+                    continue  # an event, not a reply to one of our commands
+                with self._cv:
+                    # Only keep replies somebody is still waiting for, so a
+                    # timed-out request cannot grow this dict forever.
+                    if rid in self._pending:
+                        self._responses[rid] = msg
+                        self._cv.notify_all()
+        with self._cv:
+            self._closed = True
+            self._cv.notify_all()
+
+    def command(self, *args, timeout=2.0):
+        rid = next(self._req_id)
+        with self._cv:
+            self._pending.add(rid)
+        try:
+            with self._lock:
+                payload = json.dumps({"command": list(args), "request_id": rid}) + "\n"
+                try:
+                    self._send(payload.encode())
+                except (OSError, ValueError):
+                    return None
+            deadline = time.time() + timeout
+            with self._cv:
+                while rid not in self._responses:
+                    remaining = deadline - time.time()
+                    if remaining <= 0 or self._closed:
+                        return None
+                    self._cv.wait(remaining)
+                return self._responses.pop(rid)
+        finally:
+            with self._cv:
+                self._pending.discard(rid)
+                self._responses.pop(rid, None)
+
+    def set_property(self, name, value):
+        return self.command("set_property", name, value)
+
+    def get_property(self, name):
+        resp = self.command("get_property", name)
+        if resp and resp.get("error") == "success":
+            return resp.get("data")
+        return None
+
+    def loadfile(self, url):
+        return self.command("loadfile", url, "replace")
+
+    def set_pause(self, paused):
+        return self.set_property("pause", paused)
+
+    def seek_relative(self, seconds):
+        return self.command("seek", seconds, "relative")
+
+    def seek_absolute(self, seconds):
+        return self.command("seek", seconds, "absolute")
+
+    def set_speed(self, speed):
+        return self.set_property("speed", round(speed, 2))
+
+    def set_eq(self, bass_db, treble_db):
+        filt = f"lavfi=[bass=g={bass_db}:f=110:w=0.6,treble=g={treble_db}:f=3000:w=0.6]"
+        return self.set_property("af", filt)
+
+    def set_volume(self, vol):
+        # Per-player volume (mpv's own softvol), independent of the system/global mixer.
+        return self.set_property("volume", vol)
+
+    def quit(self):
+        try:
+            self.command("quit")
+        except Exception:
+            pass
+        try:
+            self.proc.terminate()
+        except Exception:
+            pass
+        try:
+            self._conn.close()
+        except Exception:
+            pass
+        if not IS_WINDOWS:
+            # A named pipe disappears with the process that created it; a
+            # Unix socket file does not.
+            try:
+                os.remove(self.sock_path)
+            except OSError:
+                pass
+
+
+BIG_FONT = {
+    "F": ["#####", "#....", "####.", "#....", "#...."],
+    "S": [".####", "#....", ".###.", "....#", "####."],
+    "P": ["####.", "#...#", "####.", "#....", "#...."],
+    "O": [".###.", "#...#", "#...#", "#...#", ".###."],
+    "T": ["#####", "..#..", "..#..", "..#..", "..#.."],
+    "I": ["#####", "..#..", "..#..", "..#..", "#####"],
+    "Y": ["#...#", ".#.#.", "..#..", "..#..", "..#.."],
+    "-": [".....", ".....", "#####", ".....", "....."],
+}
+
+
+def show_splash(stdscr, green, amber, hold_seconds=2.8):
+    """Big 'F--- SPOTIFY' wordmark + tagline, shown once before the player UI."""
+    stdscr.erase()
+    h, w = stdscr.getmaxyx()
+
+    word = "F--- SPOTIFY"
+    letter_w, gap = 5, 1
+    total_w = len(word) * letter_w + (len(word) - 1) * gap
+    start_x = max(0, (w - total_w) // 2)
+    start_y = max(0, (h - 5) // 2 - 2)
+
+    for i, letter in enumerate(word):
+        pattern = BIG_FONT.get(letter)
+        if not pattern:
+            continue
+        lx = start_x + i * (letter_w + gap)
+        for ry, row in enumerate(pattern):
+            y = start_y + ry
+            if y < 0 or y >= h:
+                continue
+            for rx, ch in enumerate(row):
+                if ch != "#":
+                    continue
+                x = lx + rx
+                if 0 <= x < w:
+                    try:
+                        stdscr.addstr(y, x, "█", amber)
+                    except curses.error:
+                        pass
+
+    tagline = "free music for all"
+    tag_y = start_y + 5 + 2
+    if 0 <= tag_y < h:
+        try:
+            stdscr.addstr(tag_y, max(0, (w - len(tagline)) // 2), tagline, green)
+        except curses.error:
+            pass
+
+    stdscr.refresh()
+    stdscr.nodelay(True)
+    deadline = time.time() + hold_seconds
+    while time.time() < deadline:
+        try:
+            key = stdscr.getch()
+        except curses.error:
+            key = -1
+        if key != -1:
+            break
+        time.sleep(0.03)
+
+
+def search_youtube(query, n=12):
+    try:
+        out = subprocess.run(
+            [
+                tool_path("yt-dlp") or "yt-dlp",
+                "--flat-playlist",
+                "-j",
+                "--no-warnings",
+                f"ytsearch{n}:{query}",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            **_child_kwargs(),
+        )
+    except Exception as e:
+        return [], str(e)
+    if out.returncode != 0:
+        message = (out.stderr.strip().splitlines() or ["search failed"])[-1]
+        if ytdlp_is_stale():
+            message += "  (yt-dlp is out of date: run crt-music --update-ytdlp)"
+        return [], message
+    results = []
+    for line in out.stdout.strip().splitlines():
+        if not line.strip():
+            continue
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not d.get("id"):
+            continue
+        results.append(
+            {
+                "id": d["id"],
+                "title": d.get("title") or "(untitled)",
+                "uploader": d.get("uploader") or d.get("channel") or "",
+                "duration": d.get("duration"),
+            }
+        )
+    return results, None
+
+
+def resolve_link(url):
+    """Looks up a single YouTube URL (watch, youtu.be, shorts, music...) as a track dict."""
+    try:
+        out = subprocess.run(
+            [
+                tool_path("yt-dlp") or "yt-dlp",
+                "-j",
+                "--no-warnings",
+                "--skip-download",
+                "--playlist-items",
+                "1",
+                url,
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            **_child_kwargs(),
+        )
+    except Exception as e:
+        return None, str(e)
+    if out.returncode != 0:
+        message = (out.stderr.strip().splitlines() or ["could not open link"])[-1]
+        if ytdlp_is_stale():
+            message += "  (yt-dlp is out of date: run crt-music --update-ytdlp)"
+        return None, message
+    for line in out.stdout.strip().splitlines():
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if d.get("id"):
+            return {
+                "id": d["id"],
+                "title": d.get("title") or "(untitled)",
+                "uploader": d.get("uploader") or d.get("channel") or "",
+                "duration": d.get("duration"),
+            }, None
+    return None, "no video found at that link"
+
+
+def radio_request(path, params=None):
+    """Fetch data from Radio Browser, trying another public mirror on failure."""
+    query = urllib.parse.urlencode(params or {})
+    suffix = f"?{query}" if query else ""
+    last_error = "radio directory unavailable"
+    for server in RADIO_API_SERVERS:
+        url = f"{server}{path}{suffix}"
+        req = urllib.request.Request(url, headers={"User-Agent": "FSpotify/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return json.load(resp), None
+        except Exception as e:
+            last_error = str(e)
+    return None, last_error
+
+
+def current_locale_name():
+    """The system locale, e.g. "en_IN".
+
+    Windows sets none of the LC_* variables, and locale.getdefaultlocale()
+    is deprecated and goes away in Python 3.15, so ask getlocale() first.
+    """
+    try:
+        name = locale.getlocale()[0]
+        if name:
+            return name
+        name = locale.setlocale(locale.LC_CTYPE, "")
+        if name and name not in ("C", "POSIX"):
+            return name
+    except (locale.Error, ValueError):
+        pass
+    return ""
+
+
+def local_country_code():
+    configured = os.environ.get("FSPOTIFY_RADIO_COUNTRY", "").strip()
+    if configured:
+        return configured.upper()[:2]
+    languages = [
+        os.environ.get("LC_ALL", ""),
+        os.environ.get("LC_MESSAGES", ""),
+        os.environ.get("LANG", ""),
+        current_locale_name(),
+    ]
+    for language in languages:
+        match = re.search(r"[_-]([A-Za-z]{2})(?:\.|$)", language)
+        if match:
+            return match.group(1).upper()
+    return ""
+
+
+def station_to_track(station):
+    stream_url = station.get("url_resolved") or station.get("url")
+    station_uuid = station.get("stationuuid")
+    if not stream_url or not station_uuid:
+        return None
+    parsed = urllib.parse.urlparse(stream_url)
+    if parsed.scheme not in ("http", "https"):
+        return None
+    location = " · ".join(
+        part for part in (station.get("country"), station.get("state")) if part
+    )
+    details = " · ".join(
+        part for part in (location, station.get("codec"), str(station.get("bitrate") or "") + " kbps") if part and part != " kbps"
+    )
+    return {
+        "id": station_uuid,
+        "kind": "radio",
+        "title": station.get("name") or "(unnamed station)",
+        "uploader": details,
+        "duration": None,
+        "stream_url": stream_url,
+        "stationuuid": station_uuid,
+    }
+
+
+def preset_radio_tracks(query):
+    normalized = re.sub(r"[^a-z0-9]+", "", query.lower())
+    if "redfm" not in normalized and "935" not in normalized and normalized != "red":
+        return []
+    return [
+        {
+            "id": "preset-red-fm-network",
+            "kind": "radio",
+            "title": "Red FM India (network fallback)",
+            "uploader": "India · AAC · 320 kbps",
+            "duration": None,
+            "stream_url": RED_FM_NETWORK_STREAM,
+            "stationuuid": "preset-red-fm-network",
+        },
+    ]
+
+
+def search_radio(query, n=RADIO_LIMIT):
+    """Search the open Radio Browser directory, including country/local searches."""
+    text = query.strip()
+    preset_tracks = preset_radio_tracks(text)
+    params = {
+        "limit": n,
+        "hidebroken": "true",
+        "order": "clickcount",
+        "reverse": "true",
+    }
+    if text.lower().startswith("local"):
+        location = re.sub(r"^local\s*:?[ ]*", "", text, flags=re.I).strip()
+        country_code = local_country_code()
+        if country_code:
+            params["countrycode"] = country_code
+        if location:
+            params["name"] = location
+        data, error = radio_request("/json/stations/search", params)
+        if not data and location:
+            params.pop("name", None)
+            params["state"] = location
+            data, error = radio_request("/json/stations/search", params)
+    elif text:
+        params["name"] = text
+        data, error = radio_request("/json/stations/search", params)
+        if not data:
+            params.pop("name", None)
+            params["country"] = text
+            data, error = radio_request("/json/stations/search", params)
+        if not data:
+            params.pop("country", None)
+            params["tag"] = text
+            data, error = radio_request("/json/stations/search", params)
+    else:
+        data, error = radio_request(f"/json/stations/topclick/{n}", {"hidebroken": "true"})
+
+    if error and preset_tracks:
+        return preset_tracks, None
+    if error:
+        return [], error
+    tracks = []
+    seen = set()
+    for track in preset_tracks:
+        seen.add(track["id"])
+        tracks.append(track)
+    for station in data or []:
+        track = station_to_track(station)
+        if track and track["id"] not in seen:
+            seen.add(track["id"])
+            tracks.append(track)
+    return tracks, None
+
+
+LRCLIB = "https://lrclib.net/api/search"
+# "(Official Video)", "[Lyrics]", "(HD Remaster)" and similar YouTube title noise.
+TITLE_NOISE = re.compile(
+    r"\s*[\(\[][^\)\]]*\b(official|lyrics?|video|audio|visuali[sz]er|hd|hq|4k|remaster(ed)?|m/?v)\b[^\)\]]*[\)\]]",
+    re.I,
+)
+LRC_STAMP = re.compile(r"\[(\d+):(\d+(?:\.\d+)?)\]")
+
+
+def guess_artist_title(track):
+    """Best-effort split of a YouTube title into (artist, song)."""
+    title = TITLE_NOISE.sub("", track["title"])
+    title = re.sub(r"\s*\|.*$", "", title).strip()
+    for sep in (" - ", " – ", " — "):
+        if sep in title:
+            artist, song = title.split(sep, 1)
+            return artist.strip(), song.strip()
+    artist = re.sub(r"\s*(- Topic|VEVO)$", "", track.get("uploader") or "").strip()
+    return artist, title
+
+
+def parse_lrc(text):
+    lines = []
+    for raw in text.splitlines():
+        stamps = LRC_STAMP.findall(raw)
+        if not stamps:
+            continue
+        words = LRC_STAMP.sub("", raw).strip()
+        for m, s in stamps:
+            lines.append((int(m) * 60 + float(s), words))
+    lines.sort(key=lambda l: l[0])
+    return lines
+
+
+def lrclib_search(params):
+    url = f"{LRCLIB}?{urllib.parse.urlencode(params)}"
+    req = urllib.request.Request(url, headers={"User-Agent": "crt-music (FSpotify)"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.load(resp)
+
+
+def fetch_lyrics(track):
+    """Returns {"synced": [(t, line)...]} or {"plain": [line...]} or {"error": msg}."""
+    artist, song = guess_artist_title(track)
+    attempts = []
+    if artist and song:
+        attempts.append({"track_name": song, "artist_name": artist})
+    attempts.append({"q": f"{artist} {song}".strip()})
+    dur = track.get("duration")
+    plain = None
+    try:
+        for params in attempts:
+            hits = lrclib_search(params)
+            synced = [x for x in hits if x.get("syncedLyrics")]
+            if synced:
+                if dur:
+                    synced.sort(key=lambda x: abs((x.get("duration") or 0) - dur))
+                return {"synced": parse_lrc(synced[0]["syncedLyrics"])}
+            if plain is None:
+                plain = next((x["plainLyrics"] for x in hits if x.get("plainLyrics")), None)
+    except Exception as e:
+        return {"error": f"lyrics lookup failed: {e}"}
+    if plain:
+        return {"plain": plain.splitlines()}
+    return {"error": f"No lyrics found for {artist} - {song}"}
+
+
+def main(stdscr):
+    try:
+        curses.curs_set(0)
+    except curses.error:
+        pass  # some terminals cannot hide the cursor
+    curses.start_color()
+    # A transparent background keeps the terminal's own colours, which is
+    # what makes the CRT look right. PDCurses on Windows may refuse, and
+    # then -1 is not a usable colour either: fall back to a black one.
+    try:
+        curses.use_default_colors()
+        background = -1
+    except curses.error:
+        background = curses.COLOR_BLACK
+    curses.init_pair(1, curses.COLOR_GREEN, background)
+    curses.init_pair(2, curses.COLOR_YELLOW, background)
+    green = curses.color_pair(1) | curses.A_BOLD
+    amber = curses.color_pair(2) | curses.A_BOLD
+    stdscr.nodelay(True)
+    stdscr.keypad(True)
+    try:
+        curses.mousemask(curses.ALL_MOUSE_EVENTS)
+        curses.mouseinterval(0)
+    except curses.error:
+        pass  # a terminal without mouse reporting: keys still work
+    try:
+        curses.set_escdelay(10)
+    except (AttributeError, curses.error):
+        pass
+
+    def safe_addstr(y, x, s, attr=0):
+        h, w = stdscr.getmaxyx()
+        if y < 0 or y >= h or x >= w:
+            return
+        if x < 0:
+            s = s[-x:]
+            x = 0
+        s = s[: max(0, w - x - (1 if y == h - 1 and x + len(s) >= w else 0))]
+        try:
+            stdscr.addstr(y, x, s, attr)
+        except curses.error:
+            pass
+
+    mpv = MPV()
+
+    query = ""
+    results = []
+    selected = 0
+    radio_query = ""
+    radio_results = []
+    radio_selected = 0
+    view = "search"  # "search", "queue", "lyrics", "link" or "radio"
+    link_text = ""
+    link_loading = False
+    link_error = None
+    focus = "search"  # "search", "list", "queue", "radio" or "radio_list"
+    searching = False
+    search_error = None
+    radio_loading = False
+    radio_error = None
+    current = None
+    paused = False
+    speed = 1.0
+    bass = 0
+    treble = 0
+    volume = 100
+    muted = False
+    ended_handled = False
+    queue = []  # list of track dicts, upcoming playback
+    qsel = 0
+    poll_counter = 0
+    time_pos = None
+    duration = None
+    clickables = []  # [(y, x0, x1, action)]
+    lyrics_cache = {}  # track id -> fetch_lyrics() result, or None while loading
+    notice = None  # yt-dlp warning, shown in place of the divider rule
+
+    def check_helpers():
+        nonlocal notice
+        notice = ytdlp_warning()
+
+    # In a thread: yt-dlp --version costs a process start, and the splash
+    # screen should not wait for it.
+    threading.Thread(target=check_helpers, daemon=True).start()
+
+    def switch_view(v):
+        nonlocal view, focus
+        view = v
+        focus = "radio" if v == "radio" else "search"
+
+    def load_lyrics(track):
+        tid = track["id"]
+        if tid in lyrics_cache:
+            return
+        lyrics_cache[tid] = None
+
+        def worker():
+            lyrics_cache[tid] = fetch_lyrics(track)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def start_search():
+        nonlocal searching, search_error
+        q = query.strip()
+        if not q or searching:
+            return
+        searching = True
+        search_error = None
+
+        def worker():
+            nonlocal results, selected, searching, search_error, focus, view
+            res, err = search_youtube(q)
+            results = res
+            search_error = err
+            selected = 0
+            searching = False
+            if res:
+                focus = "list"
+                view = "search"
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def start_radio_search():
+        nonlocal radio_loading, radio_error, radio_results, radio_selected, focus
+        if radio_loading:
+            return
+        radio_loading = True
+        radio_error = None
+        query_text = radio_query.strip()
+
+        def worker():
+            nonlocal radio_loading, radio_error, radio_results, radio_selected, focus
+            found, error = search_radio(query_text)
+            radio_results = found
+            radio_error = error
+            radio_selected = 0
+            radio_loading = False
+            if found:
+                focus = "radio_list"
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def start_link():
+        nonlocal link_loading, link_error
+        url = link_text.strip()
+        if not url or link_loading:
+            return
+        link_loading = True
+        link_error = None
+
+        def worker():
+            nonlocal link_loading, link_error
+            track, err = resolve_link(url)
+            link_error = err
+            link_loading = False
+            if track:
+                play(track)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def apply_volume():
+        mpv.set_volume(0 if muted else volume)
+
+    def adjust_volume(delta):
+        nonlocal volume, muted
+        volume = clamp(volume + delta, VOL_MIN, VOL_MAX)
+        muted = False
+        apply_volume()
+
+    def toggle_mute():
+        nonlocal muted
+        muted = not muted
+        apply_volume()
+
+    def play(track):
+        nonlocal current, paused, ended_handled
+        current = track
+        source = track.get("stream_url") or f"https://www.youtube.com/watch?v={track['id']}"
+        mpv.loadfile(source)
+        mpv.set_speed(speed)
+        mpv.set_eq(bass, treble)
+        apply_volume()
+        mpv.set_pause(False)
+        paused = False
+        ended_handled = False
+        if track.get("kind") != "radio":
+            load_lyrics(track)
+
+    def play_track(idx):
+        nonlocal selected
+        if idx < 0 or idx >= len(results):
+            return
+        selected = idx
+        play(results[idx])
+
+    def play_radio_track(idx):
+        nonlocal radio_selected
+        if idx < 0 or idx >= len(radio_results):
+            return
+        radio_selected = idx
+        play(radio_results[idx])
+
+    def advance_queue():
+        if queue:
+            nxt = queue.pop(0)
+            play(nxt)
+
+    def play_next_for(idx):
+        if idx < 0 or idx >= len(results):
+            return
+        queue.insert(0, results[idx])
+        if current is None:
+            advance_queue()
+
+    def add_queue_for(idx):
+        if idx < 0 or idx >= len(results):
+            return
+        queue.append(results[idx])
+        if current is None:
+            advance_queue()
+
+    def play_next_radio_for(idx):
+        if idx < 0 or idx >= len(radio_results):
+            return
+        queue.insert(0, radio_results[idx])
+        if current is None:
+            advance_queue()
+
+    def add_radio_queue_for(idx):
+        if idx < 0 or idx >= len(radio_results):
+            return
+        queue.append(radio_results[idx])
+        if current is None:
+            advance_queue()
+
+    def queue_play(idx):
+        nonlocal qsel
+        if idx < 0 or idx >= len(queue):
+            return
+        track = queue.pop(idx)
+        qsel = clamp(qsel, 0, max(0, len(queue) - 1))
+        play(track)
+
+    def queue_remove(idx):
+        nonlocal qsel
+        if idx < 0 or idx >= len(queue):
+            return
+        queue.pop(idx)
+        qsel = clamp(qsel, 0, max(0, len(queue) - 1))
+
+    def queue_move(idx, delta):
+        nonlocal qsel
+        j = idx + delta
+        if not (0 <= idx < len(queue)) or not (0 <= j < len(queue)):
+            return
+        queue[idx], queue[j] = queue[j], queue[idx]
+        qsel = j
+
+    def clear_queue():
+        nonlocal qsel
+        queue.clear()
+        qsel = 0
+
+    def toggle_pause():
+        nonlocal paused
+        if not current:
+            return
+        paused = not paused
+        mpv.set_pause(paused)
+
+    def seek_to(t):
+        if current:
+            mpv.seek_absolute(t)
+
+    def rewind():
+        if current:
+            mpv.seek_relative(-SEEK_STEP)
+
+    def forward():
+        if current:
+            mpv.seek_relative(SEEK_STEP)
+
+    def adjust_speed(delta):
+        nonlocal speed
+        speed = clamp(round(speed + delta, 2), SPEED_MIN, SPEED_MAX)
+        mpv.set_speed(speed)
+
+    def adjust_bass(delta):
+        nonlocal bass
+        bass = clamp(bass + delta, EQ_MIN, EQ_MAX)
+        mpv.set_eq(bass, treble)
+
+    def adjust_treble(delta):
+        nonlocal treble
+        treble = clamp(treble + delta, EQ_MIN, EQ_MAX)
+        mpv.set_eq(bass, treble)
+
+    def handle_click(my, mx):
+        for (y, x0, x1, action) in clickables:
+            if my == y and x0 <= mx < x1:
+                action()
+                return
+
+    show_splash(stdscr, green, amber)
+
+    running = True
+    while running:
+        h, w = stdscr.getmaxyx()
+
+        while True:
+            try:
+                key = stdscr.getch()
+            except curses.error:
+                key = -1
+            if key == -1:
+                break
+
+            if key == 27:
+                running = False
+            elif key == curses.KEY_MOUSE:
+                try:
+                    _, mx, my, _, bstate = curses.getmouse()
+                except curses.error:
+                    continue
+                if bstate & (curses.BUTTON1_CLICKED | curses.BUTTON1_PRESSED):
+                    handle_click(my, mx)
+            elif key == curses.KEY_F2:
+                switch_view({"search": "queue", "queue": "lyrics", "lyrics": "link", "link": "radio", "radio": "search"}[view])
+            elif key == curses.KEY_F3:
+                switch_view("search" if view == "lyrics" else "lyrics")
+            elif key == curses.KEY_F4:
+                switch_view("search" if view == "link" else "link")
+            elif key == curses.KEY_F5:
+                switch_view("search" if view == "radio" else "radio")
+            # The link box swallows typed characters before the global hotkeys:
+            # URLs are full of '.', '-', '=' and '_', which would otherwise tweak the EQ/speed.
+            elif view == "link" and key in (10, 13, curses.KEY_ENTER):
+                start_link()
+            elif view == "link" and key in (curses.KEY_BACKSPACE, 127, 8):
+                link_text = link_text[:-1]
+            elif view == "link" and key == 21:  # Ctrl+U clears the box
+                link_text = ""
+            elif view == "link" and 33 <= key < 256:
+                link_text += chr(key)
+            elif view == "radio" and focus == "radio" and key in (10, 13, curses.KEY_ENTER):
+                start_radio_search()
+            elif view == "radio" and focus == "radio" and key in (curses.KEY_BACKSPACE, 127, 8):
+                radio_query = radio_query[:-1]
+            elif view == "radio" and focus == "radio" and key == 21:  # Ctrl+U clears the box
+                radio_query = ""
+            elif view == "radio" and focus == "radio" and 32 <= key < 256:
+                radio_query += chr(key)
+                focus = "radio"
+            elif key == ord("\t"):
+                if view == "search":
+                    if results:
+                        focus = "list" if focus == "search" else "search"
+                elif view == "queue":
+                    if queue:
+                        focus = "queue" if focus == "search" else "search"
+                elif view == "radio":
+                    if radio_results:
+                        focus = "radio_list" if focus == "radio" else "radio"
+            elif key == ord(" "):
+                toggle_pause()
+            elif key in (curses.KEY_LEFT,):
+                rewind()
+            elif key in (curses.KEY_RIGHT,):
+                forward()
+            elif key in (ord("["),):
+                adjust_speed(-SPEED_STEP)
+            elif key in (ord("]"),):
+                adjust_speed(SPEED_STEP)
+            elif key in (ord("-"), ord("_")):
+                adjust_bass(-EQ_STEP)
+            elif key in (ord("="), ord("+")):
+                adjust_bass(EQ_STEP)
+            elif key in (ord(","), ord("<")):
+                adjust_treble(-EQ_STEP)
+            elif key in (ord("."), ord(">")):
+                adjust_treble(EQ_STEP)
+            elif focus != "search" and key == ord("9"):
+                adjust_volume(-VOL_STEP)
+            elif focus != "search" and key == ord("0"):
+                adjust_volume(VOL_STEP)
+            elif focus != "search" and key in (ord("m"), ord("M")):
+                toggle_mute()
+            elif focus == "list" and key == curses.KEY_UP:
+                selected = clamp(selected - 1, 0, max(0, len(results) - 1))
+            elif focus == "list" and key == curses.KEY_DOWN:
+                selected = clamp(selected + 1, 0, max(0, len(results) - 1))
+            elif focus == "list" and key in (10, 13, curses.KEY_ENTER):
+                play_track(selected)
+            elif focus == "list" and key in (ord("n"), ord("N")):
+                play_next_for(selected)
+            elif focus == "list" and key in (ord("a"), ord("A")):
+                add_queue_for(selected)
+            elif focus == "radio_list" and key == curses.KEY_UP:
+                radio_selected = clamp(radio_selected - 1, 0, max(0, len(radio_results) - 1))
+            elif focus == "radio_list" and key == curses.KEY_DOWN:
+                radio_selected = clamp(radio_selected + 1, 0, max(0, len(radio_results) - 1))
+            elif focus == "radio_list" and key in (10, 13, curses.KEY_ENTER):
+                play_radio_track(radio_selected)
+            elif focus == "radio_list" and key in (ord("n"), ord("N")):
+                play_next_radio_for(radio_selected)
+            elif focus == "radio_list" and key in (ord("a"), ord("A")):
+                add_radio_queue_for(radio_selected)
+            elif focus == "queue" and key == curses.KEY_UP:
+                qsel = clamp(qsel - 1, 0, max(0, len(queue) - 1))
+            elif focus == "queue" and key == curses.KEY_DOWN:
+                qsel = clamp(qsel + 1, 0, max(0, len(queue) - 1))
+            elif focus == "queue" and key in (10, 13, curses.KEY_ENTER):
+                queue_play(qsel)
+            elif focus == "queue" and key in (ord("x"), ord("X"), curses.KEY_DC):
+                queue_remove(qsel)
+            elif focus == "queue" and key == ord("{"):
+                queue_move(qsel, -1)
+            elif focus == "queue" and key == ord("}"):
+                queue_move(qsel, 1)
+            elif focus == "queue" and key in (ord("c"), ord("C")):
+                clear_queue()
+            elif focus == "search" and key in (10, 13, curses.KEY_ENTER):
+                start_search()
+            elif focus == "search" and key in (curses.KEY_BACKSPACE, 127, 8):
+                query = query[:-1]
+            elif focus == "search" and 32 <= key < 256:
+                query += chr(key)
+                focus = "search"
+
+        poll_counter += 1
+        if current and view == "lyrics" and poll_counter % 4 != 0:
+            # Poll every tick on the lyrics tab so the highlighted line keeps up.
+            time_pos = mpv.get_property("time-pos")
+        elif current and poll_counter % 4 == 0:
+            time_pos = mpv.get_property("time-pos")
+            duration = mpv.get_property("duration")
+            eof = mpv.get_property("eof-reached")
+            if eof and not ended_handled:
+                ended_handled = True
+                if queue:
+                    advance_queue()
+                else:
+                    paused = True
+
+        # ---- render ----
+        stdscr.erase()
+        clickables.clear()
+
+        title = "F S P O T I F Y"
+        safe_addstr(0, max(0, (w - len(title)) // 2), title, amber)
+
+        # tab bar
+        x = 2
+        for tab_view, tab_label in (
+            ("search", "SEARCH"),
+            ("queue", f"QUEUE {len(queue)}" if queue else "QUEUE"),
+            ("radio", "RADIO"),
+            ("lyrics", "LYRICS"),
+            ("link", "LINK"),
+        ):
+            txt = f"[ {tab_label} ]"
+            attr = (amber | curses.A_REVERSE) if view == tab_view else green
+            safe_addstr(1, x, txt, attr)
+            clickables.append((1, x, x + len(txt), (lambda v=tab_view: switch_view(v))))
+            x += len(txt) + 2
+
+        box_attr = (amber | curses.A_REVERSE) if focus in ("search", "radio") else green
+        if view == "link":
+            label = "LOADING..." if link_loading else (link_text + "_")
+            box = f"LINK> {label}"
+            # Show the tail of a long URL so the cursor stays visible.
+            if len(box) > w - 4:
+                box = "…" + box[-(w - 5):]
+            safe_addstr(2, 2, box, box_attr)
+        elif view == "radio":
+            label = "LOADING..." if radio_loading else (radio_query + "_")
+            safe_addstr(2, 2, trunc(f"RADIO> {label}", w - 4), box_attr)
+        else:
+            label = "SEARCHING..." if searching else (query + "_")
+            safe_addstr(2, 2, trunc(f"SEARCH> {label}", w - 4), box_attr)
+
+        if notice:
+            safe_addstr(3, 2, trunc(f"! {notice}", max(0, w - 4)), amber)
+        else:
+            safe_addstr(3, 2, "-" * max(0, w - 4), green)
+
+        list_top = 4
+        panel_top = h - 9
+        list_height = max(1, panel_top - 1 - list_top)
+
+        if view == "search":
+            if search_error:
+                safe_addstr(list_top, 2, trunc(f"! {search_error}", w - 4), amber)
+            elif not results:
+                safe_addstr(list_top, 2, "Type a song name and press ENTER to search.", green)
+            else:
+                visible = results[:list_height]
+                for i, r in enumerate(visible):
+                    y = list_top + i
+                    marker = ">" if i == selected and focus == "list" else " "
+                    dur = fmt_time(r["duration"])
+                    base = f"{marker} {i + 1:>2}. {r['title']}  [{r['uploader']}] ({dur})"
+                    buttons = "  [+N][+Q]"
+                    avail = w - 4
+                    show_buttons = avail > len(buttons) + 5
+                    text_w = max(0, avail - len(buttons)) if show_buttons else avail
+                    text = trunc(base, text_w)
+                    if show_buttons:
+                        text = text.ljust(text_w)
+                    line = text + (buttons if show_buttons else "")
+                    attr = (green | curses.A_REVERSE) if (i == selected and focus == "list") else green
+                    safe_addstr(y, 2, line, attr)
+                    clickables.append((y, 2, 2 + len(text), (lambda idx=i: play_track(idx))))
+                    if show_buttons:
+                        n_x0 = 2 + len(text) + 2
+                        clickables.append((y, n_x0, n_x0 + 4, (lambda idx=i: play_next_for(idx))))
+                        q_x0 = n_x0 + 4
+                        clickables.append((y, q_x0, q_x0 + 4, (lambda idx=i: add_queue_for(idx))))
+        elif view == "radio":
+            if radio_error:
+                safe_addstr(list_top, 2, trunc(f"! {radio_error}", w - 4), amber)
+            elif radio_loading:
+                safe_addstr(list_top, 2, "Searching the open radio directory...", green)
+            elif not radio_results:
+                safe_addstr(list_top, 2, "Press ENTER for top stations, or search a station, city, country, or genre.", green)
+                safe_addstr(list_top + 1, 2, "Try: local  or  local: Mumbai  (country comes from FSPOTIFY_RADIO_COUNTRY/LANG)", green)
+            else:
+                visible = radio_results[:list_height]
+                for i, station in enumerate(visible):
+                    y = list_top + i
+                    marker = ">" if i == radio_selected and focus == "radio_list" else " "
+                    details = station["uploader"]
+                    suffix = f"  [{details}]" if details else ""
+                    base = f"{marker} {i + 1:>2}. {station['title']}{suffix}  [LIVE]"
+                    buttons = "  [+N][+Q]"
+                    avail = w - 4
+                    show_buttons = avail > len(buttons) + 5
+                    text_w = max(0, avail - len(buttons)) if show_buttons else avail
+                    text = trunc(base, text_w)
+                    if show_buttons:
+                        text = text.ljust(text_w)
+                    line = text + (buttons if show_buttons else "")
+                    attr = (green | curses.A_REVERSE) if (i == radio_selected and focus == "radio_list") else green
+                    safe_addstr(y, 2, line, attr)
+                    clickables.append((y, 2, 2 + len(text), (lambda idx=i: play_radio_track(idx))))
+                    if show_buttons:
+                        n_x0 = 2 + len(text) + 2
+                        clickables.append((y, n_x0, n_x0 + 4, (lambda idx=i: play_next_radio_for(idx))))
+                        q_x0 = n_x0 + 4
+                        clickables.append((y, q_x0, q_x0 + 4, (lambda idx=i: add_radio_queue_for(idx))))
+        elif view == "link":
+            if link_error:
+                safe_addstr(list_top, 2, trunc(f"! {link_error}", w - 4), amber)
+            elif link_loading:
+                safe_addstr(list_top, 2, "Looking up link...", green)
+            else:
+                safe_addstr(list_top, 2, trunc("Paste a YouTube link and press ENTER to play it.", w - 4), green)
+                safe_addstr(list_top + 1, 2, trunc("(Ctrl+Shift+V to paste, Ctrl+U to clear)", w - 4), green)
+        elif view == "lyrics":
+            lyr = lyrics_cache.get(current["id"]) if current and current.get("kind") != "radio" else None
+            if not current:
+                safe_addstr(list_top, 2, "Nothing playing. Play a track to see its lyrics.", green)
+            elif current.get("kind") == "radio":
+                safe_addstr(list_top, 2, "Lyrics are available for YouTube tracks; live radio metadata varies by station.", green)
+            elif lyr is None:
+                safe_addstr(list_top, 2, "Fetching lyrics...", green)
+            elif "error" in lyr:
+                safe_addstr(list_top, 2, trunc(f"! {lyr['error']}", w - 4), amber)
+            else:
+                synced = lyr.get("synced")
+                if synced:
+                    lines = [text or "♪" for _, text in synced]
+                    t = time_pos or 0
+                    cur = -1
+                    for i, (stamp, _) in enumerate(synced):
+                        if stamp <= t:
+                            cur = i
+                        else:
+                            break
+                    # Keep the current line in the middle of the pane.
+                    first = max(0, cur) - list_height // 2
+                else:
+                    lines = lyr["plain"]
+                    cur = -1
+                    first = 0
+                    safe_addstr(list_top, 2, "(unsynced lyrics: no timestamps available)", amber)
+                start_row = 0 if synced else 1
+                for row in range(start_row, list_height):
+                    i = first + row - start_row
+                    if not (0 <= i < len(lines)):
+                        continue
+                    text = trunc(lines[i], w - 4)
+                    x0 = max(2, (w - len(text)) // 2)
+                    attr = (amber | curses.A_REVERSE) if i == cur else green
+                    safe_addstr(list_top + row, x0, text, attr)
+                    if synced:
+                        clickables.append(
+                            (list_top + row, x0, x0 + len(text), (lambda s=synced[i][0]: seek_to(s)))
+                        )
+        else:
+            if not queue:
+                safe_addstr(
+                    list_top,
+                    2,
+                    trunc("Queue is empty. Go to SEARCH (F2), pick a track, then 'n' (play next) or 'a' (add to queue).", w - 4),
+                    green,
+                )
+            else:
+                visible = queue[:list_height]
+                for i, t in enumerate(visible):
+                    y = list_top + i
+                    marker = ">" if i == qsel and focus == "queue" else " "
+                    tag = "NEXT" if i == 0 else f"{i + 1:>2}"
+                    dur = fmt_time(t["duration"])
+                    base = f"{marker} {tag}. {t['title']}  [{t['uploader']}] ({dur})"
+                    remove_btn = "  [x]"
+                    avail = w - 4
+                    show_btn = avail > len(remove_btn) + 5
+                    text_w = max(0, avail - len(remove_btn)) if show_btn else avail
+                    text = trunc(base, text_w)
+                    if show_btn:
+                        text = text.ljust(text_w)
+                    line = text + (remove_btn if show_btn else "")
+                    attr = (green | curses.A_REVERSE) if (i == qsel and focus == "queue") else green
+                    safe_addstr(y, 2, line, attr)
+                    clickables.append((y, 2, 2 + len(text), (lambda idx=i: queue_play(idx))))
+                    if show_btn:
+                        b_x0 = 2 + len(text) + 2
+                        clickables.append((y, b_x0, b_x0 + 3, (lambda idx=i: queue_remove(idx))))
+
+        safe_addstr(panel_top, 2, "-" * max(0, w - 4), green)
+
+        now_playing = trunc(current["title"], 40) if current else "(nothing loaded)"
+        now_line = f"NOW: {now_playing}"
+        if queue:
+            nxt_title = trunc(queue[0]["title"], 22)
+            extra = f"   NEXT: {nxt_title}"
+            if len(queue) > 1:
+                extra += f" (+{len(queue) - 1} more)"
+            if len(now_line) + len(extra) <= w - 4:
+                now_line += extra
+        safe_addstr(panel_top + 1, 2, trunc(now_line, w - 4), amber)
+
+        bar_w = max(10, w - 20)
+        frac = 0.0
+        if current and duration:
+            frac = clamp((time_pos or 0) / duration, 0, 1)
+        filled = int(bar_w * frac)
+        bar = "#" * filled + "-" * (bar_w - filled)
+        safe_addstr(panel_top + 2, 2, f"[{bar}] {fmt_time(time_pos)}/{fmt_time(duration)}", green)
+
+        play_label = "[ PAUSE ]" if (current and not paused) else "[ PLAY ]"
+        x = 2
+        safe_addstr(panel_top + 3, x, play_label, green | curses.A_REVERSE)
+        clickables.append((panel_top + 3, x, x + len(play_label), toggle_pause))
+        x += len(play_label) + 2
+
+        rew_label = "[ <<10s ]"
+        safe_addstr(panel_top + 3, x, rew_label, green)
+        clickables.append((panel_top + 3, x, x + len(rew_label), rewind))
+        x += len(rew_label) + 2
+
+        fwd_label = "[ 10s>> ]"
+        safe_addstr(panel_top + 3, x, fwd_label, green)
+        clickables.append((panel_top + 3, x, x + len(fwd_label), forward))
+
+        x = 2
+        speed_txt = f"SPEED {speed:.1f}x [-][+]"
+        safe_addstr(panel_top + 4, x, speed_txt, green)
+        minus_x = x + speed_txt.index("[-]")
+        clickables.append((panel_top + 4, minus_x, minus_x + 3, lambda: adjust_speed(-SPEED_STEP)))
+        plus_x = x + speed_txt.index("[+]")
+        clickables.append((panel_top + 4, plus_x, plus_x + 3, lambda: adjust_speed(SPEED_STEP)))
+        x += len(speed_txt) + 3
+
+        bass_txt = f"BASS {bass:+d}dB [-][+]"
+        safe_addstr(panel_top + 4, x, bass_txt, green)
+        minus_x = x + bass_txt.index("[-]")
+        clickables.append((panel_top + 4, minus_x, minus_x + 3, lambda: adjust_bass(-EQ_STEP)))
+        plus_x = x + bass_txt.index("[+]")
+        clickables.append((panel_top + 4, plus_x, plus_x + 3, lambda: adjust_bass(EQ_STEP)))
+        x += len(bass_txt) + 3
+
+        treble_txt = f"TREBLE {treble:+d}dB [-][+]"
+        safe_addstr(panel_top + 4, x, treble_txt, green)
+        minus_x = x + treble_txt.index("[-]")
+        clickables.append((panel_top + 4, minus_x, minus_x + 3, lambda: adjust_treble(-EQ_STEP)))
+        plus_x = x + treble_txt.index("[+]")
+        clickables.append((panel_top + 4, plus_x, plus_x + 3, lambda: adjust_treble(EQ_STEP)))
+
+        x = 2
+        vol_txt = f"VOL {'MUTE' if muted else str(volume) + '%'} [-][+]"
+        safe_addstr(panel_top + 5, x, vol_txt, green)
+        minus_x = x + vol_txt.index("[-]")
+        clickables.append((panel_top + 5, minus_x, minus_x + 3, lambda: adjust_volume(-VOL_STEP)))
+        plus_x = x + vol_txt.index("[+]")
+        clickables.append((panel_top + 5, plus_x, plus_x + 3, lambda: adjust_volume(VOL_STEP)))
+        x += len(vol_txt) + 3
+
+        mute_txt = "[ UNMUTE ]" if muted else "[ MUTE ]"
+        safe_addstr(panel_top + 5, x, mute_txt, (amber | curses.A_REVERSE) if muted else green)
+        clickables.append((panel_top + 5, x, x + len(mute_txt), toggle_mute))
+
+        if view == "search":
+            hint = "LIST: ENTER play now   n play next   a add to queue"
+        elif view == "radio":
+            hint = "RADIO: ENTER search/top stations   TAB list   local or local: city"
+        elif view == "lyrics":
+            hint = "LYRICS: click a line to jump there   (lyrics from lrclib.net)"
+        elif view == "link":
+            hint = "LINK: paste a YouTube URL, ENTER play now   Ctrl+U clear"
+        else:
+            hint = "QUEUE: ENTER play now   x remove   { } reorder   c clear all"
+        safe_addstr(panel_top + 7, max(0, (w - len(hint)) // 2), trunc(hint, w), green)
+
+        footer = "TAB focus  F2 next tab  F3 lyrics  F4 link  F5 radio  SPACE play/pause  ←/→ seek  9/0 vol  m mute  ESC quit"
+        safe_addstr(h - 1, max(0, (w - len(footer)) // 2), trunc(footer, w), green)
+
+        stdscr.refresh()
+        time.sleep(TICK)
+
+    mpv.quit()
+
+
+USAGE = """crt-music - FSpotify, a terminal music and internet radio player
+
+usage: crt-music [--version] [--check] [--update-ytdlp] [--help]
+
+  --version        print the version and exit
+  --check          report whether Python, curses, mpv and yt-dlp are usable
+  --update-ytdlp   install the current yt-dlp for this user and exit
+  --help           print this message
+
+If YouTube tracks will not play, the cause is almost always a yt-dlp that is
+too old for the way YouTube now serves streams. Fix it with:
+
+    crt-music --update-ytdlp
+
+Run it with no arguments to start the player. F5 opens the radio tab; the
+footer lists the other keys. Set FSPOTIFY_RADIO_COUNTRY=IN (or another ISO
+country code) to choose the country used by the radio's local search."""
+
+
+def check_environment():
+    """Report what is installed. The installers run this to verify a setup,
+    so it must work without a terminal of its own and never start curses."""
+    ok = True
+    print("crt-music %s" % VERSION)
+    print("python     %s (%s)" % (sys.version.split()[0], sys.executable))
+    if curses is None:
+        ok = False
+        print("curses     MISSING")
+        if IS_WINDOWS:
+            print("           install it with: %s -m pip install windows-curses"
+                  % os.path.basename(sys.executable))
+    else:
+        print("curses     ok")
+    for tool in ("mpv", "yt-dlp"):
+        found = tool_path(tool)
+        print("%-10s %s" % (tool, found or "MISSING"))
+        if not found:
+            ok = False
+            print("%s" % install_hint(tool))
+    number, raw = ytdlp_version()
+    if raw:
+        state = "too old for YouTube" if (number is not None and number < MIN_YTDLP) else "ok"
+        print("%-10s %s (%s)" % ("yt-dlp ver", raw, state))
+        if state != "ok":
+            ok = False
+            print("           fix it with: crt-music --update-ytdlp")
+    print("ready" if ok else "not ready")
+    return 0 if ok else 1
+
+
+def run():
+    args = sys.argv[1:]
+    if args:
+        if args[0] in ("-V", "--version"):
+            print("crt-music %s" % VERSION)
+            return 0
+        if args[0] in ("-h", "--help"):
+            print(USAGE)
+            return 0
+        if args[0] == "--check":
+            return check_environment()
+        if args[0] in ("--update-ytdlp", "--update-yt-dlp"):
+            return update_ytdlp()
+        print("crt-music: unknown option: %s" % args[0], file=sys.stderr)
+        print(USAGE, file=sys.stderr)
+        return 2
+
+    try:
+        locale.setlocale(locale.LC_ALL, "")
+    except (locale.Error, ValueError):
+        pass  # the C locale still works, it just draws plainer
+
+    if curses is None:
+        print("crt-music needs the curses module.")
+        if IS_WINDOWS:
+            print("Install it with:\n  %s -m pip install windows-curses"
+                  % os.path.basename(sys.executable))
+        else:
+            print("Your Python was built without curses; install a full python3.")
+        return 1
+    if not tool_path("mpv"):
+        print("crt-music needs mpv for playback. Install it first:\n" + install_hint("mpv"))
+        return 1
+    if not tool_path("yt-dlp"):
+        print("crt-music needs yt-dlp to search YouTube. Install it first:\n"
+              + install_hint("yt-dlp"))
+        return 1
+    curses.wrapper(main)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(run())

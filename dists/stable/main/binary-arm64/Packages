@@ -1,14 +1,14 @@
 Package: crt-music
-Version: 1.0.1
+Version: 1.1.0
 Architecture: all
 Maintainer: Abhinav Tomar <abhinavtomar2087@gmail.com>
 Depends: python3 (>= 3.9), mpv
 Recommends: yt-dlp
-Filename: pool/main/c/crt-music/crt-music_1.0.1_all.deb
-Size: 707946
-MD5sum: b8c864cf2ec1bf7d2543ce5ec2c75523
-SHA1: a55926c148be5b96d800d019fda1c720f918422f
-SHA256: af6d2bcc6a8f915fd91363856d0a9d50547a026a8a963b7cea6c0131cdea6416
+Filename: pool/main/c/crt-music/crt-music_1.1.0_all.deb
+Size: 713018
+MD5sum: 217e081d01bfbfbb537a91ffd22494ee
+SHA1: 47ef5ad960c1ea27fa88c097ad4c4afed5ee8e30
+SHA256: 1d250f9cdaadd7fe095b422ebc7fa94e7a8dd4232aa8cfcba06ad298b4f5f6fd
 Section: sound
 Priority: optional
 Description: terminal music and internet radio player

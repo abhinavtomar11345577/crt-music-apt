@@ -1,17 +1,46 @@
 <!doctype html>
-<html lang="en"><meta charset="utf-8"><title>FSpotify APT repository</title>
-<h1>FSpotify APT repository</h1>
-<p>Install FSpotify on Debian, Ubuntu or a derivative:</p>
+<html lang="en"><meta charset="utf-8"><title>FSpotify</title>
+<h1>FSpotify 1.1.0</h1>
+<p>A terminal music and internet radio player. It is a Python program driving
+<code>mpv</code>, so it runs anywhere those run.</p>
+
+<h2>Linux and macOS</h2>
 <pre>curl -fsSL https://abhinavtomar11345577.github.io/crt-music-apt/setup.sh | sh</pre>
-<p>That adds this signed repository and installs the <code>crt-music</code>
-package. Add <code>--dry-run</code> to see what it would do:
-<code>curl -fsSL https://abhinavtomar11345577.github.io/crt-music-apt/setup.sh | sh -s -- --dry-run</code></p>
-<p>Or add the repository by hand:</p>
+<p>On Debian, Ubuntu, Mint, Pop!_OS and Raspberry Pi OS that adds this signed
+APT repository and installs the <code>crt-music</code> package, so the app
+updates with the system. On Arch, Fedora, openSUSE, Alpine, Void, Gentoo,
+macOS and the rest it installs the player under <code>~/.local</code> using
+whatever package manager is there. Add <code>--dry-run</code> to see what it
+would do, or <code>--uninstall</code> to remove it again:</p>
+<pre>curl -fsSL https://abhinavtomar11345577.github.io/crt-music-apt/setup.sh | sh -s -- --dry-run</pre>
+
+<h2>Windows</h2>
+<p>In PowerShell (no administrator rights needed):</p>
+<pre>irm https://abhinavtomar11345577.github.io/crt-music-apt/install.ps1 | iex</pre>
+<p>That installs Python's curses support, mpv, yt-dlp and the player into
+<code>%LOCALAPPDATA%\crt-music</code>, and adds a Start menu entry. To inspect
+or undo it:</p>
+<pre>&amp; ([scriptblock]::Create((irm https://abhinavtomar11345577.github.io/crt-music-apt/install.ps1))) -DryRun
+&amp; ([scriptblock]::Create((irm https://abhinavtomar11345577.github.io/crt-music-apt/install.ps1))) -Uninstall</pre>
+
+<h2>By hand</h2>
+<p>The player is a single file. With Python 3.9+, mpv and yt-dlp installed:</p>
+<pre>curl -fsSL https://abhinavtomar11345577.github.io/crt-music-apt/crt-music -o crt-music
+chmod +x crt-music
+./crt-music</pre>
+
+<h2>APT repository by hand</h2>
 <pre>sudo install -d -m 0755 /usr/share/keyrings
 curl -fsSL https://abhinavtomar11345577.github.io/crt-music-apt/apt-key.asc | sudo gpg --dearmor --yes -o /usr/share/keyrings/crt-music.gpg
 echo "deb [signed-by=/usr/share/keyrings/crt-music.gpg] https://abhinavtomar11345577.github.io/crt-music-apt stable main" | sudo tee /etc/apt/sources.list.d/crt-music.list
 sudo apt update
-sudo apt install crt-music
-crt-music</pre>
+sudo apt install crt-music</pre>
 <p>Remove it with <code>sudo apt remove crt-music</code>.</p>
+
+<h2>If YouTube will not play</h2>
+<p>YouTube only serves streams to a current <code>yt-dlp</code>, and the one
+packaged by most distributions is far too old. The installers handle this;
+if it happens later, run:</p>
+<pre>crt-music --update-ytdlp</pre>
+<p><code>crt-music --check</code> reports what is installed and what is stale.</p>
 </html>
