@@ -1,0 +1,18 @@
+Package: crt-music
+Version: 1.0.1
+Architecture: all
+Maintainer: Abhinav Tomar <abhinavtomar2087@gmail.com>
+Depends: python3 (>= 3.9), mpv
+Recommends: yt-dlp
+Filename: pool/main/c/crt-music/crt-music_1.0.1_all.deb
+Size: 707946
+MD5sum: b8c864cf2ec1bf7d2543ce5ec2c75523
+SHA1: a55926c148be5b96d800d019fda1c720f918422f
+SHA256: af6d2bcc6a8f915fd91363856d0a9d50547a026a8a963b7cea6c0131cdea6416
+Section: sound
+Priority: optional
+Description: terminal music and internet radio player
+ FSpotify searches YouTube and browses internet radio from a CRT-style
+ terminal interface. It uses mpv for audio playback and yt-dlp for
+ YouTube search and stream resolution.
+

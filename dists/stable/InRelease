@@ -5,33 +5,45 @@ Origin: FSpotify
 Label: FSpotify APT Repository
 Suite: stable
 Codename: stable
-Architectures: amd64 all
+Architectures: amd64 arm64 armhf i386 all
 Components: main
 Description: FSpotify music player packages
-Date: Wed, 14 Oct 2026 04:43:49 +0000
+Date: Wed, 14 Oct 2026 05:17:53 +0000
 MD5Sum:
- b2e2c8768587d19afa17d21d808bdd52          642 main/binary-all/Packages
- ae26618e78296f335018eeee057102e1          450 main/binary-all/Packages.gz
- b2e2c8768587d19afa17d21d808bdd52          642 main/binary-amd64/Packages
- ae26618e78296f335018eeee057102e1          450 main/binary-amd64/Packages.gz
+ 3559cf15ac3aec82ba19872fbc982341          653 main/binary-all/Packages
+ e50ff0ee266bb5a7318567715ee9481e          457 main/binary-all/Packages.gz
+ 3559cf15ac3aec82ba19872fbc982341          653 main/binary-amd64/Packages
+ e50ff0ee266bb5a7318567715ee9481e          457 main/binary-amd64/Packages.gz
+ 3559cf15ac3aec82ba19872fbc982341          653 main/binary-arm64/Packages
+ e50ff0ee266bb5a7318567715ee9481e          457 main/binary-arm64/Packages.gz
+ 3559cf15ac3aec82ba19872fbc982341          653 main/binary-armhf/Packages
+ e50ff0ee266bb5a7318567715ee9481e          457 main/binary-armhf/Packages.gz
+ 3559cf15ac3aec82ba19872fbc982341          653 main/binary-i386/Packages
+ e50ff0ee266bb5a7318567715ee9481e          457 main/binary-i386/Packages.gz
 SHA256:
- 7c0ac6538e6516306a712fdb4738deb66c39cb2326cfd9b09465e764657a367c          642 main/binary-all/Packages
- 62ea9045904f7d6cf71070f6a689cf793600cc849f2d50b25495c35aed7260e2          450 main/binary-all/Packages.gz
- 7c0ac6538e6516306a712fdb4738deb66c39cb2326cfd9b09465e764657a367c          642 main/binary-amd64/Packages
- 62ea9045904f7d6cf71070f6a689cf793600cc849f2d50b25495c35aed7260e2          450 main/binary-amd64/Packages.gz
+ bc143bf698b99c3d0ca2655c6e144b3d6893f08b07b2f166adaa0104fa581256          653 main/binary-all/Packages
+ 30b01e39dbcf8a1b6d02863101ac823398822b4475bf3e0506e77905b364074b          457 main/binary-all/Packages.gz
+ bc143bf698b99c3d0ca2655c6e144b3d6893f08b07b2f166adaa0104fa581256          653 main/binary-amd64/Packages
+ 30b01e39dbcf8a1b6d02863101ac823398822b4475bf3e0506e77905b364074b          457 main/binary-amd64/Packages.gz
+ bc143bf698b99c3d0ca2655c6e144b3d6893f08b07b2f166adaa0104fa581256          653 main/binary-arm64/Packages
+ 30b01e39dbcf8a1b6d02863101ac823398822b4475bf3e0506e77905b364074b          457 main/binary-arm64/Packages.gz
+ bc143bf698b99c3d0ca2655c6e144b3d6893f08b07b2f166adaa0104fa581256          653 main/binary-armhf/Packages
+ 30b01e39dbcf8a1b6d02863101ac823398822b4475bf3e0506e77905b364074b          457 main/binary-armhf/Packages.gz
+ bc143bf698b99c3d0ca2655c6e144b3d6893f08b07b2f166adaa0104fa581256          653 main/binary-i386/Packages
+ 30b01e39dbcf8a1b6d02863101ac823398822b4475bf3e0506e77905b364074b          457 main/binary-i386/Packages.gz
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCgAdFiEEOeIiF84VOp0LfZ1ZuA3uTDDOhREFAmrPCIUACgkQuA3uTDDO
-hRFpAQ/+IKn2Ibae5G5ikzUJ6LvXGluZHr+pJ0JL/m0VWP8oH86/I+HXnMQAy+Mt
-kZnhrgUw8eP5gb3wuL6O76nCXBAEkIUuNDtonlajOQQCk+oIvs79uaHR7mHOi8wD
-fPJySc/mlbhT1ytk7QRHnZcqqczjxzD/Ofx78jYpXPATTLQWbyQIPr1Gw9ZjUpP0
-rXwCRHC86hbeTimbyyyAd1gxpUnRGOUBf6mjEzKiwDApQ9Yugf/VHr4WEZmsq6QG
-tR4wWE8EJUuBKq0UuUUSV90xE7GroBDlHpaIJCdBAbYs7lFGIdxEApMvi/Qkjixj
-FiL/cf/6jKyKIfgL4NvtDf3Ixc8TrigCLeet3htznNfmkbr5q73W93vEbV6r3JfC
-ilcF1N1LZQgHXdmvlR7TUeVKypu8Kl4sJfW5F7nplTCefxmwzTWPNHlR0lRjfbRm
-JAUuOvq27bdrqKk48QxbbPHcZux2gO/+EepA/OEFA+V0H08l2ONK5ZxL9fy41JvX
-qzo98y6aFiXoO1Bbn0SPibL9Vv1VwFv/DgHejb0zIWV0vJFS0O0He0+7Uj0SAZpo
-84sJuTCLI7fvHM4THAT9kbAAElwAcxxceJHnjYEdgwVtykEja138Mt4z14PAdOQX
-iQ4vvZkQ8gXKKch3yi6mR5p6TjB8fOutV2JQfiff58WDNeQcUf0=
-=pzWb
+iQIzBAEBCgAdFiEEOeIiF84VOp0LfZ1ZuA3uTDDOhREFAmrPEIEACgkQuA3uTDDO
+hRGLUw//TgAErgm/TbZ59vfdthHj3/IVZ5wAVe9VMFH+Y39rRtMw/33haBiXh6vV
+hlIC5CQ5zFaGxpuOKK5QXME9HX60GXGnK6xFTVHhFz4daq+Z1V0iB9zKzbxCTm67
+1OkPkOyqwAdEZcSQmCvFaPDNsJse73DlOirnEGCPm6843YsPzvJd+fE1uxK1Pi/S
+BdbDF7yM6uiGlgMvfTwwtELJ5N1RaG/QeN6tkpTESBdvx3pgdgumFemk4gGQSbys
+Y8o25jXB0/uJRp2BzFl1wW5nZsI9XYdALJgep5mR8N1nN57pf0n8iufwKcyWuJdw
+Kj5VDxsXyxeZMiK4yFEhhD9w0GhnYB2qbzQRF1W6Yp1UvLHJ3xYI5Tl2tPOv15R1
+tKX99VglV/waux3yrQK71YOr5l35T7to6HHKX7IU/O4Ju2B7Bo8zosvPn5dGP9Ew
+6ktlOyYxTJ8OeAK//jM+wAo5mRsk+aAB84hk8xSgsnFcNHJh2vN95Liy245k+kkD
+zwyM0GQGUMHYrZr5oEOO7QTsGp85gvBZslT5blBz0+/qrW2jhYk2GIqeH5MFeU95
+9LgFZj2OY9K+trFy9FwvqY1ekQp1/dgAVq5U8v+kpwqO/H3dHjeNC5jdQ7yGm+Y5
+J8VowWRT7EICeiZVecBrGT42wZKwGyJ3J4N63mh16X2D08LEm8U=
+=KEfl
 -----END PGP SIGNATURE-----

@@ -1,10 +1,17 @@
 <!doctype html>
 <html lang="en"><meta charset="utf-8"><title>FSpotify APT repository</title>
 <h1>FSpotify APT repository</h1>
-<p>Install FSpotify on Debian or Ubuntu:</p>
-<pre>curl -fsSL https://abhinavtomar11345577.github.io/crt-music-apt/apt-key.asc | sudo gpg --dearmor -o /usr/share/keyrings/crt-music.gpg
+<p>Install FSpotify on Debian, Ubuntu or a derivative:</p>
+<pre>curl -fsSL https://abhinavtomar11345577.github.io/crt-music-apt/setup.sh | sh</pre>
+<p>That adds this signed repository and installs the <code>crt-music</code>
+package. Add <code>--dry-run</code> to see what it would do:
+<code>curl -fsSL https://abhinavtomar11345577.github.io/crt-music-apt/setup.sh | sh -s -- --dry-run</code></p>
+<p>Or add the repository by hand:</p>
+<pre>sudo install -d -m 0755 /usr/share/keyrings
+curl -fsSL https://abhinavtomar11345577.github.io/crt-music-apt/apt-key.asc | sudo gpg --dearmor --yes -o /usr/share/keyrings/crt-music.gpg
 echo "deb [signed-by=/usr/share/keyrings/crt-music.gpg] https://abhinavtomar11345577.github.io/crt-music-apt stable main" | sudo tee /etc/apt/sources.list.d/crt-music.list
 sudo apt update
 sudo apt install crt-music
 crt-music</pre>
+<p>Remove it with <code>sudo apt remove crt-music</code>.</p>
 </html>
