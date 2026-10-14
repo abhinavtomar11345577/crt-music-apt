@@ -78,6 +78,8 @@ if ($Uninstall) {
 }
 
 Say "Installing FSpotify $Version into $Root"
+Say 'This is mostly downloading: Python support, mpv and yt-dlp, roughly'
+Say '70 MB in all. Some steps print no progress - let each one finish.'
 if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $BinDir | Out-Null }
 $env:Path = "$BinDir;$env:Path"
 
@@ -110,8 +112,9 @@ foreach ($candidate in @('py', 'python3', 'python')) {
 if (-not $python) {
     if (Have 'winget') {
         Step 'install Python 3 with winget' {
+            Say 'This downloads about 25 MB from Microsoft; winget prints its own progress.'
             winget install --id Python.Python.3.12 --exact --silent `
-                --accept-package-agreements --accept-source-agreements | Out-Null
+                --accept-package-agreements --accept-source-agreements
         }
         # winget puts python on PATH only for new processes.
         $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
@@ -146,29 +149,30 @@ if (-not $DryRun) {
 function Install-Mpv {
     if (Have 'mpv') { return $true }
     if (Have 'winget') {
-        Say 'Installing mpv with winget'
+        Say 'Installing mpv with winget (about 50 MB; winget shows its progress)'
         if (-not $DryRun) {
             winget install --id shinchiro.mpv --exact --silent `
-                --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+                --accept-package-agreements --accept-source-agreements
             $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
                         [Environment]::GetEnvironmentVariable('Path', 'User') + ";$BinDir"
         }
         if ($DryRun -or (Have 'mpv')) { return $true }
     }
     if (Have 'scoop') {
-        Say 'Installing mpv with scoop'
-        if (-not $DryRun) { scoop install mpv 2>&1 | Out-Null }
+        Say 'Installing mpv with scoop (about 50 MB)'
+        if (-not $DryRun) { scoop install mpv }
         if ($DryRun -or (Have 'mpv')) { return $true }
     }
     if (Have 'choco') {
-        Say 'Installing mpv with Chocolatey'
-        if (-not $DryRun) { choco install mpv -y --no-progress 2>&1 | Out-Null }
+        Say 'Installing mpv with Chocolatey (about 50 MB)'
+        if (-not $DryRun) { choco install mpv -y }
         if ($DryRun -or (Have 'mpv')) { return $true }
     }
 
     # No package manager: take the official Windows build. Its archive is
     # .7z, which the tar.exe shipped with Windows 10 1803 and later can read.
-    Say 'Fetching the official mpv build for Windows'
+    Say 'Downloading the official mpv build for Windows (about 50 MB)'
+    Say 'There is no progress bar for this one; give it a minute or two.'
     if ($DryRun) { Write-Host '    would download mpv from github.com/shinchiro/mpv-winbuild-cmake'; return $true }
     try {
         $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'aarch64' } else { 'x86_64' }
@@ -223,6 +227,8 @@ function Get-YtdlpDate {
 if ((Get-YtdlpDate) -ge $MinYtdlp) {
     Say "yt-dlp is current"
 } else {
+    Say 'Downloading the current yt-dlp (about 17 MB). This is the piece that'
+    Say 'makes YouTube play; it has no progress bar, so please let it finish.'
     Step "install the current yt-dlp into $BinDir" {
         Invoke-WebRequest -UseBasicParsing `
             -Uri 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' `

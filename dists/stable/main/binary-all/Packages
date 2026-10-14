@@ -6,9 +6,9 @@ Depends: python3 (>= 3.9), mpv
 Recommends: yt-dlp
 Filename: pool/main/c/crt-music/crt-music_1.1.0_all.deb
 Size: 713018
-MD5sum: 217e081d01bfbfbb537a91ffd22494ee
-SHA1: 47ef5ad960c1ea27fa88c097ad4c4afed5ee8e30
-SHA256: 1d250f9cdaadd7fe095b422ebc7fa94e7a8dd4232aa8cfcba06ad298b4f5f6fd
+MD5sum: 9d56ec7fd9c7127da03e4ccacfd7abbc
+SHA1: 19fc4d18814daf1e4673c6829eefdc196bc93c1e
+SHA256: c8a5b0bf8b010e671cc6f75e2af99ab27976fb1f8e2ff5fc584819159d2da129
 Section: sound
 Priority: optional
 Description: terminal music and internet radio player

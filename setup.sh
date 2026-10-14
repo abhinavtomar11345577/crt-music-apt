@@ -54,6 +54,11 @@ while [ $# -gt 0 ]; do
 done
 
 say()  { printf '==> %s\n' "$*"; }
+STEP=0
+step() {  # step "what is about to happen"
+    STEP=$((STEP + 1))
+    printf '\n==> [%d/4] %s\n' "$STEP" "$*"
+}
 warn() { printf 'setup.sh: %s\n' "$*" >&2; }
 die()  { printf 'setup.sh: %s\n' "$*" >&2; exit 1; }
 
@@ -70,12 +75,23 @@ run() {
 }
 
 fetch() {  # fetch URL DEST
+    mkdir -p "$(dirname "$2")" 2>/dev/null || true
     if command -v curl >/dev/null 2>&1; then
         curl --fail --silent --show-error --location --retry 3 --retry-delay 2 "$1" -o "$2"
     elif command -v wget >/dev/null 2>&1; then
         wget --quiet --tries=3 -O "$2" "$1"
     else
         die "need curl or wget to download $1"
+    fi
+}
+
+# For the one download big enough that silence looks like a hang.
+fetch_progress() {  # fetch_progress URL DEST
+    mkdir -p "$(dirname "$2")" 2>/dev/null || true
+    if command -v curl >/dev/null 2>&1 && [ -t 2 ]; then
+        curl --fail --location --retry 3 --retry-delay 2 --progress-bar "$1" -o "$2"
+    else
+        fetch "$1" "$2"
     fi
 }
 
@@ -237,6 +253,16 @@ detect_pm() {
     fi
 }
 
+SUDO_EXPLAINED=false
+needs_root_note() {
+    [ -n "$SUDO" ] || return 0
+    $SUDO_EXPLAINED && return 0
+    SUDO_EXPLAINED=true
+    say "This is a system package, so $SUDO may ask for your password."
+    say "Press Ctrl+D to skip it: FSpotify will then fetch its own copy into"
+    say "your home directory instead. Ctrl+C stops the installer."
+}
+
 PM_UPDATED=false
 pm_install() {  # pm_install TOOL -> 0 if it is installed afterwards
     tool=$1
@@ -251,9 +277,21 @@ pm_install() {  # pm_install TOOL -> 0 if it is installed afterwards
     if [ "$PM" = nix ]; then
         name="nixpkgs.$name"
     fi
-    say "Installing $tool"
+    say "Installing $tool ($PM package: $name)"
+    say "$PM is downloading it from your distribution's mirrors; its own"
+    say "progress follows. On a fresh system this can take a few minutes."
+    needs_root_note
+    # Output is deliberately not redirected. The package manager may ask
+    # something, and sudo prompts for a password on the terminal whatever we
+    # do with its output; hiding the rest only makes that prompt mysterious.
     # shellcheck disable=SC2086
-    run $PM_INSTALL "$name" >/dev/null 2>&1 || return 1
+    run $PM_INSTALL "$name" </dev/null || {
+        if [ "$PM" = pacman ]; then
+            warn "pacman could not install $name. If it reported a missing or
+stale database, run 'sudo pacman -Syu' and then this installer again."
+        fi
+        return 1
+    }
     $DRY_RUN && return 0
     command -v "$tool" >/dev/null 2>&1
 }
@@ -278,7 +316,7 @@ ytdlp_current() {
 
 ensure_ytdlp() {
     if ! command -v yt-dlp >/dev/null 2>&1; then
-        pm_install yt-dlp >/dev/null 2>&1 || true
+        pm_install yt-dlp || say "Falling back to the official yt-dlp build."
     fi
     if $DRY_RUN; then
         ytdlp_current && return 0
@@ -312,17 +350,26 @@ install_ytdlp_upstream() {
         linux:armv7l|linux:armv7*) asset=yt-dlp_linux_armv7l ;;
         *)                asset=yt-dlp ;;   # the portable zipapp; needs python3
     esac
-    say "Fetching yt-dlp ($asset) from the official release"
+    case "$asset" in
+        yt-dlp_linux|yt-dlp_linux_aarch64) size="about 39 MB" ;;
+        yt-dlp_macos)       size="about 35 MB" ;;
+        yt-dlp_linux_armv7l) size="about 38 MB" ;;
+        *)                  size="about 3 MB" ;;
+    esac
+    say "Downloading the official yt-dlp build: $asset, $size."
+    say "This is the piece that makes YouTube play. A progress bar follows;"
+    say "on a slow connection it can take a few minutes. Please let it run."
     if $DRY_RUN; then
         printf '    would download: %s/%s -> %s/yt-dlp\n' "$base" "$asset" "$HELPER_BIN"
         return 0
     fi
     mkdir -p "$HELPER_BIN"
-    fetch "$base/$asset" "$tmpdir/yt-dlp" || return 1
+    fetch_progress "$base/$asset" "$tmpdir/yt-dlp" || return 1
     chmod 0755 "$tmpdir/yt-dlp"
     mv "$tmpdir/yt-dlp" "$HELPER_BIN/yt-dlp"
     PATH="$HELPER_BIN:$PATH"
     export PATH
+    say "yt-dlp installed in $HELPER_BIN."
     command -v yt-dlp >/dev/null 2>&1
 }
 
@@ -340,6 +387,9 @@ find_python() {
 
 portable_install() {
     say "Installing FSpotify $VERSION for $OS under $PREFIX_DIR"
+    say "Four steps, mostly downloads. Nothing here needs your attention"
+    say "unless it asks; let each step finish."
+    step "Checking Python, mpv and yt-dlp"
     detect_pm
     [ -n "$PM" ] && say "Package manager: $PM"
 
@@ -379,9 +429,12 @@ automatically. Install the 'mpv' package with your package manager, then run
 this installer again."
     fi
 
+    step "Making sure yt-dlp is current enough for YouTube"
     ensure_ytdlp || true
 
-    say "Fetching the player"
+    step "Installing the player"
+
+    say "Downloading the player itself (one Python file, about 50 KB)"
     if $DRY_RUN; then
         printf '    would download: %s/crt-music -> %s/crt-music\n' "$PAGES_URL" "$LIB_DIR"
     else
@@ -410,6 +463,7 @@ LAUNCHER
         install -m 0755 "$tmpdir/launcher" "$BIN_DIR/crt-music"
     fi
 
+    step "Finishing up"
     if [ "$OS" = linux ] && ! $IS_TERMUX; then
         say "Adding the desktop entry"
         run mkdir -p "$DESKTOP_DIR" "$ICON_DIR"
@@ -544,7 +598,13 @@ apt_install() {
 
 # -------------------------------------------------------------------- main --
 tmpdir=$(mktemp -d)
-trap 'rm -rf "$tmpdir"' EXIT INT TERM
+cleanup() { [ -n "${tmpdir:-}" ] && rm -rf "$tmpdir"; }
+# INT and TERM must also stop the script. A trap on its own returns to where
+# the signal arrived, so Ctrl+C used to delete the temporary directory and
+# then carry on, failing every later download with "curl: (23)".
+trap 'cleanup' EXIT
+trap 'echo; warn "interrupted"; cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
 
 if $DO_UNINSTALL; then
     uninstall_portable
