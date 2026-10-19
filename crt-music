@@ -3,7 +3,9 @@
 
 Runs on Linux, macOS and Windows. Everything outside the Python standard
 library is optional at import time: the player needs mpv to play audio and
-yt-dlp to search YouTube, and says so instead of failing if one is missing.
+yt-dlp to resolve YouTube streams, and says so instead of failing if one is
+missing. Searching asks YouTube Music directly, so it returns songs rather
+than every video about an artist.
 """
 import os
 # Must be set before curses starts the terminal: see crt-pong/crt-snake for why.
@@ -32,7 +34,7 @@ try:
 except ImportError:  # pragma: no cover - depends on the platform
     curses = None
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 IS_WINDOWS = os.name == "nt"
 IS_MACOS = sys.platform == "darwin"
 
@@ -162,7 +164,7 @@ def ytdlp_warning():
     """One line naming the yt-dlp problem, or None when it is fine."""
     number, raw = ytdlp_version()
     if not tool_path("yt-dlp"):
-        return "yt-dlp is missing: YouTube search and playback will not work"
+        return "yt-dlp is missing: YouTube playback will not work"
     if number is not None and number < MIN_YTDLP:
         return ("yt-dlp %s is too old for YouTube: quit and run  crt-music --update-ytdlp"
                 % raw)
@@ -524,7 +526,8 @@ def show_splash(stdscr, green, amber, hold_seconds=2.8):
         time.sleep(0.03)
 
 
-def search_youtube(query, n=12):
+def search_youtube_videos(query, n=12):
+    """Every kind of YouTube video matching the query, as yt-dlp ranks them."""
     try:
         out = subprocess.run(
             [
@@ -567,6 +570,201 @@ def search_youtube(query, n=12):
             }
         )
     return results, None
+
+
+# --- Songs, not every video about the artist -------------------------------
+# A plain YouTube search for a band answers with interviews, reactions, live
+# sets and hour-long mixes next to the music. YouTube Music's catalogue
+# already knows what a song is, so ask it first: one JSON call to the same
+# InnerTube endpoint the music site uses, which replies with title, artist,
+# album and length. The yt-dlp search above stays as the fallback.
+YTMUSIC_SEARCH = (
+    "https://music.youtube.com/youtubei/v1/search"
+    "?key=AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30&prettyPrint=false"
+)
+YTMUSIC_CLIENT_VERSION = "1.20240101.01.00"
+# What the "Songs" chip on the music site sends: songs only, no videos,
+# albums, artists or playlists.
+YTMUSIC_SONGS_FILTER = "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D"
+YTMUSIC_UA = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Safari/537.36"
+)
+
+
+def ytmusic_find(node, key):
+    """Every value stored under `key` anywhere in a decoded InnerTube reply.
+
+    The reply nests result rows differently depending on what was searched
+    for, and walking it beats guessing the path.
+    """
+    if isinstance(node, dict):
+        for name, value in node.items():
+            if name == key:
+                yield value
+            for found in ytmusic_find(value, key):
+                yield found
+    elif isinstance(node, list):
+        for value in node:
+            for found in ytmusic_find(value, key):
+                yield found
+
+
+def ytmusic_column(column):
+    """The visible text of one column of a result row."""
+    renderer = column.get("musicResponsiveListItemFlexColumnRenderer") or {}
+    runs = (renderer.get("text") or {}).get("runs") or []
+    return "".join(run.get("text", "") for run in runs).strip()
+
+
+def parse_clock(text):
+    """"3:27" or "1:02:03" as a number of seconds, or None."""
+    if not re.match(r"^\d{1,2}(:\d{2}){1,2}$", (text or "").strip()):
+        return None
+    seconds = 0
+    for part in text.strip().split(":"):
+        seconds = seconds * 60 + int(part)
+    return seconds
+
+
+def ytmusic_request(query, params=None):
+    """One InnerTube search. Returns (decoded reply, error)."""
+    body = {
+        "context": {
+            "client": {
+                "clientName": "WEB_REMIX",
+                "clientVersion": YTMUSIC_CLIENT_VERSION,
+                "hl": "en",
+                # The catalogue is regional: someone in India searching for a
+                # film song should get the release their country streams.
+                "gl": local_country_code() or "US",
+            }
+        },
+        "query": query,
+    }
+    if params:
+        body["params"] = params
+    request = urllib.request.Request(
+        YTMUSIC_SEARCH,
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": YTMUSIC_UA,
+            "Origin": "https://music.youtube.com",
+            "Referer": "https://music.youtube.com/",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=15) as resp:
+            return json.load(resp), None
+    except Exception as e:
+        return None, str(e)
+
+
+def ytmusic_rows(data):
+    """The song rows of a search reply, as track dicts."""
+    tracks = []
+    seen = set()
+    for row in ytmusic_find(data or {}, "musicResponsiveListItemRenderer"):
+        video_id = next(iter(ytmusic_find(row, "videoId")), None)
+        if not video_id or video_id in seen:
+            continue
+        columns = [ytmusic_column(c) for c in row.get("flexColumns") or []]
+        title = columns[0] if columns else ""
+        if not title:
+            continue
+        # The second column reads "Artist • Album • 3:27", sometimes behind
+        # a "Song" tag, and the length is last whenever the row carries one.
+        subtitle = columns[1] if len(columns) > 1 else ""
+        fields = [f.strip() for f in subtitle.split("•") if f.strip()]
+        if fields and fields[0].lower() in ("song", "video"):
+            fields = fields[1:]
+        duration = parse_clock(fields[-1]) if fields else None
+        if duration is not None:
+            fields = fields[:-1]
+        seen.add(video_id)
+        artist = fields[0] if fields else ""
+        tracks.append(
+            {
+                "id": video_id,
+                "title": title,
+                "uploader": artist,
+                "artist": artist,
+                "duration": duration,
+            }
+        )
+    return tracks
+
+
+def search_youtube_music(query, n=12):
+    """Songs for a query from the YouTube Music catalogue. Returns (tracks, error)."""
+    data, error = ytmusic_request(query, YTMUSIC_SONGS_FILTER)
+    if data is None:
+        return [], error
+    tracks = ytmusic_rows(data)[:n]
+    if not tracks:
+        return [], "no songs found"
+    return tracks, None
+
+
+# A song is minutes long, not seconds or hours, and these words name things
+# people make about music rather than music itself.
+SONG_MIN_SECONDS = 45
+SONG_MAX_SECONDS = 15 * 60
+NOT_A_SONG = re.compile(
+    r"\b(interview|podcast|reaction|reacts?|reacting|documentary|"
+    r"behind the scenes|making of|tutorial|lesson|how to|review|trailer|"
+    r"teaser|news|vlog|gameplay|speech|press conference|"
+    r"full (album|concert|movie|episode|set)|live ?stream|compilation|"
+    r"megamix|mix|playlist|mashup|best of|greatest hits|top \d+|\d+ hours?)\b",
+    re.I,
+)
+
+
+def looks_like_song(track):
+    duration = track.get("duration")
+    if duration is None:  # a live stream has no length: not a recording
+        return False
+    if not SONG_MIN_SECONDS <= duration <= SONG_MAX_SECONDS:
+        return False
+    return not NOT_A_SONG.search(track.get("title") or "")
+
+
+def song_key(track):
+    """What two uploads of the same song share once the title noise is gone."""
+    bare = TITLE_NOISE.sub("", track.get("title") or "").lower()
+    return re.sub(r"[^a-z0-9]+", "", bare)
+
+
+def filter_songs(tracks, n):
+    """Keep the songs, in the order YouTube ranked them, minus the re-uploads."""
+    songs = []
+    others = []
+    seen = set()
+    for track in tracks:
+        key = song_key(track)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        (songs if looks_like_song(track) else others).append(track)
+    # A query whose hits are all oddly titled or oddly long is better served
+    # with something than with an empty screen.
+    return (songs + others)[:n]
+
+
+def search_youtube(query, n=12):
+    """Songs for a query: the music catalogue first, YouTube itself after."""
+    songs, music_error = search_youtube_music(query, n)
+    if songs:
+        return songs, None
+    videos, error = search_youtube_videos(query, max(n * 3, 25))
+    if error:
+        # yt-dlp names a cause people can act on; the music one rarely does.
+        return [], error
+    if not videos:
+        return [], music_error or "nothing found"
+    return filter_songs(videos, n), None
 
 
 def resolve_link(url):
@@ -767,7 +965,13 @@ LRC_STAMP = re.compile(r"\[(\d+):(\d+(?:\.\d+)?)\]")
 
 
 def guess_artist_title(track):
-    """Best-effort split of a YouTube title into (artist, song)."""
+    """Best-effort split of a YouTube title into (artist, song).
+
+    A track from the music catalogue already names its artist, and its title
+    is the song alone, so nothing has to be guessed for those.
+    """
+    if track.get("artist"):
+        return track["artist"], TITLE_NOISE.sub("", track["title"]).strip()
     title = TITLE_NOISE.sub("", track["title"])
     title = re.sub(r"\s*\|.*$", "", title).strip()
     for sep in (" - ", " – ", " — "):

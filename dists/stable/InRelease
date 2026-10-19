@@ -8,42 +8,42 @@ Codename: stable
 Architectures: amd64 arm64 armhf i386 all
 Components: main
 Description: FSpotify music player packages
-Date: Wed, 14 Oct 2026 06:24:58 +0000
+Date: Mon, 19 Oct 2026 19:01:09 +0000
 MD5Sum:
- 8d9ae86ab7ec89c814f3a5e133044628          653 main/binary-all/Packages
- ae8ebbc062749aadc2c5c602dee86869          457 main/binary-all/Packages.gz
- 8d9ae86ab7ec89c814f3a5e133044628          653 main/binary-amd64/Packages
- ae8ebbc062749aadc2c5c602dee86869          457 main/binary-amd64/Packages.gz
- 8d9ae86ab7ec89c814f3a5e133044628          653 main/binary-arm64/Packages
- ae8ebbc062749aadc2c5c602dee86869          457 main/binary-arm64/Packages.gz
- 8d9ae86ab7ec89c814f3a5e133044628          653 main/binary-armhf/Packages
- ae8ebbc062749aadc2c5c602dee86869          457 main/binary-armhf/Packages.gz
- 8d9ae86ab7ec89c814f3a5e133044628          653 main/binary-i386/Packages
- ae8ebbc062749aadc2c5c602dee86869          457 main/binary-i386/Packages.gz
+ f61f8a4c5212db8d304cd60054ed3a36          664 main/binary-all/Packages
+ 89d6d7a1688057b4001d837465c3bf9e          470 main/binary-all/Packages.gz
+ f61f8a4c5212db8d304cd60054ed3a36          664 main/binary-amd64/Packages
+ 89d6d7a1688057b4001d837465c3bf9e          470 main/binary-amd64/Packages.gz
+ f61f8a4c5212db8d304cd60054ed3a36          664 main/binary-arm64/Packages
+ 89d6d7a1688057b4001d837465c3bf9e          470 main/binary-arm64/Packages.gz
+ f61f8a4c5212db8d304cd60054ed3a36          664 main/binary-armhf/Packages
+ 89d6d7a1688057b4001d837465c3bf9e          470 main/binary-armhf/Packages.gz
+ f61f8a4c5212db8d304cd60054ed3a36          664 main/binary-i386/Packages
+ 89d6d7a1688057b4001d837465c3bf9e          470 main/binary-i386/Packages.gz
 SHA256:
- e5a830780f68a560604360d809a425b40b45c20694dddc6ccacce058921f7c52          653 main/binary-all/Packages
- 5a13a29ba5ff846c46a3f2830553363db42d2f75ea9cbc0877678046b24e531a          457 main/binary-all/Packages.gz
- e5a830780f68a560604360d809a425b40b45c20694dddc6ccacce058921f7c52          653 main/binary-amd64/Packages
- 5a13a29ba5ff846c46a3f2830553363db42d2f75ea9cbc0877678046b24e531a          457 main/binary-amd64/Packages.gz
- e5a830780f68a560604360d809a425b40b45c20694dddc6ccacce058921f7c52          653 main/binary-arm64/Packages
- 5a13a29ba5ff846c46a3f2830553363db42d2f75ea9cbc0877678046b24e531a          457 main/binary-arm64/Packages.gz
- e5a830780f68a560604360d809a425b40b45c20694dddc6ccacce058921f7c52          653 main/binary-armhf/Packages
- 5a13a29ba5ff846c46a3f2830553363db42d2f75ea9cbc0877678046b24e531a          457 main/binary-armhf/Packages.gz
- e5a830780f68a560604360d809a425b40b45c20694dddc6ccacce058921f7c52          653 main/binary-i386/Packages
- 5a13a29ba5ff846c46a3f2830553363db42d2f75ea9cbc0877678046b24e531a          457 main/binary-i386/Packages.gz
+ e2a5ec39644d4140da2cd48ef5a0cc589af6259f3df4ed2cbc8d277024d28224          664 main/binary-all/Packages
+ 55fee35eaee801bd68a058bc47190e03e8e345da7e03bdd722e29269243f9cee          470 main/binary-all/Packages.gz
+ e2a5ec39644d4140da2cd48ef5a0cc589af6259f3df4ed2cbc8d277024d28224          664 main/binary-amd64/Packages
+ 55fee35eaee801bd68a058bc47190e03e8e345da7e03bdd722e29269243f9cee          470 main/binary-amd64/Packages.gz
+ e2a5ec39644d4140da2cd48ef5a0cc589af6259f3df4ed2cbc8d277024d28224          664 main/binary-arm64/Packages
+ 55fee35eaee801bd68a058bc47190e03e8e345da7e03bdd722e29269243f9cee          470 main/binary-arm64/Packages.gz
+ e2a5ec39644d4140da2cd48ef5a0cc589af6259f3df4ed2cbc8d277024d28224          664 main/binary-armhf/Packages
+ 55fee35eaee801bd68a058bc47190e03e8e345da7e03bdd722e29269243f9cee          470 main/binary-armhf/Packages.gz
+ e2a5ec39644d4140da2cd48ef5a0cc589af6259f3df4ed2cbc8d277024d28224          664 main/binary-i386/Packages
+ 55fee35eaee801bd68a058bc47190e03e8e345da7e03bdd722e29269243f9cee          470 main/binary-i386/Packages.gz
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCgAdFiEEOeIiF84VOp0LfZ1ZuA3uTDDOhREFAmrPIDsACgkQuA3uTDDO
-hRFLiA/7BwS4OdxEy3OJw7zFk8Trw7aH6fFf90P8MAqbBIehFBTnc9fNjbvj9SCo
-5EhXwRjaOEBkXZFgjxcdI6SzN+Hb89qGQyp9R9YJIJlpGXoGkY/lEASjC4GIFec8
-6dxWKH1HUuh2X9g4ZLam4fernQ5gaafLq+481ZgrgRa7EDWJ0LEto9khiUnZL1ZT
-w/3O5JSgr0yrU1KGpE4LARbx0RHEu4uc+CtQQw5l9rzFrWRbkD+WfYns5J1MVxFC
-UtWH5BnBC1cmMxDqoPQ98PVg1EXfGyeXylU429uwaEXyATCo5AnIBYjmk3Js/mph
-Mnzd0YXZ0V6mpa3ksp9sNDX+egStKD6tsZ+HY8h4hSes/S9JFNrjUrfEHAtbOcBm
-3mibp15Fi+fRmNpt8KE+SVtL6MY8emnmeEj6aQlsZcEGu68QiXYM8t78soM8JzTe
-5pxv+Pt8F0S3nrWi19AczY2avj85KDON7a43x8dh99hZD5ejeajboVn50bcg9PXT
-keV3gp1hRsmqCcK/Mz5mTpLq/HIsH3m71Nc2jhIdb6x4f6jVUtCAPsmbjd1Zbcm/
-ZsiV0ZFWEnrJ4Py5U+waETJqB7+YCoQt9ftiJlphUuIlN58VDLYKFnocT5qN+Enu
-w8rjRmLT1jCSZoJs53qrN/Rbp4pM6yqfXBcw1ckcTzqKssloflk=
-=6jW4
+iQIzBAEBCgAdFiEEOeIiF84VOp0LfZ1ZuA3uTDDOhREFAmrWaPUACgkQuA3uTDDO
+hRGKfg/9Hpxg+fO5WujzKWhiN61d4GQLBVYIpmCUtO4nnKf43xcOg5uiGYMLq1Wn
+OYpw4ZEEWQf1hHtF7T052DMLgt0mnF45nMUXuywtFjxTyJXWHk2jrv8QhHwLL/kp
+3WW4AtDmv0fWidl6w9FSZn1NkigwLSmcJrpSLCgDXbs9b9M7r8X7jLGBn+QzzsWC
+HtKDWpRWyTlrvTs41stmbUIcJAUSqyf3VmmEjP3mxuMfrqTP7ns9hgMohLtX3TH3
+BI6rESdgkw8whLStgTN1mHWWc0oq7bpsaHIIUoxCJVlejc0x8nVVGFYO27csWQG1
+XZ7JiPCmc/jSsZRaVarQCUhVWIJrcjycHack0YeVVbfsVTdVknPpSz9vtPqx3hgJ
+WwgNWEqy/7AAsj5z/SNrfmCGruljrCMPbIJ32bixjsrqfoslvUw+sh0yptr8Rklp
+AOL6ja9gSMLsN3osUcEnlTeOUmRCjK1AH212QAN+bj9cToykcyWVrYHsurREGR5F
+K5/DMDquk2E97iw0v19X3H8XBpDaPMt4rqZi5CH+zdp+qlo10JX6jSaH2uD0q3fh
+Cc+vAwN4zdITB6E18f3HazutqvYCR3rAB7uYSGXDa6ur5Uyb8Oc8Lnz62+qchOuB
+BaKsI8b0ndqFfZZ1LUF8C8eJE4wZ1BY56AvHyuTxeu3C7MDWo28=
+=GrXw
 -----END PGP SIGNATURE-----

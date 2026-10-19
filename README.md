@@ -1,7 +1,11 @@
-# FSpotify 1.1.0
+# FSpotify 1.2.0
 
 A terminal music and internet radio player: a single Python file driving mpv,
 so it runs on Linux, macOS and Windows alike.
+
+Searching asks the YouTube Music catalogue, so an artist's name brings back
+that artist's songs, with artist and length beside each one, rather than every
+video ever made about them.
 
 ## Linux and macOS
 

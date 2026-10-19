@@ -25,8 +25,8 @@ $PSNativeCommandUseErrorActionPreference = $false
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $PagesUrl   = 'https://abhinavtomar11345577.github.io/crt-music-apt'
-$Version    = '1.1.0'
-$AppSha256  = 'df120db8e47324f88497eee50c4268a52205ada67ce9e21372c4216368588497'
+$Version    = '1.2.0'
+$AppSha256  = 'db03524d5ab70edd762102da3790096cc800c48fb5ff42d0eabe410c5e0489e9'
 $MinYtdlp   = 20260101
 $Root       = Join-Path $env:LOCALAPPDATA 'crt-music'
 $BinDir     = Join-Path $Root 'bin'

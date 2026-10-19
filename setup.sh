@@ -14,10 +14,10 @@ set -eu
 
 PAGES_URL=https://abhinavtomar11345577.github.io/crt-music-apt
 PACKAGE=crt-music
-VERSION=1.1.0
+VERSION=1.2.0
 SUITE=stable
 COMPONENT=main
-APP_SHA256=df120db8e47324f88497eee50c4268a52205ada67ce9e21372c4216368588497
+APP_SHA256=db03524d5ab70edd762102da3790096cc800c48fb5ff42d0eabe410c5e0489e9
 ICON_SHA256=a4628a79681ffdc79d1b4ea3663808ac4bbdad3c169f813d925d38d2e398e4bc
 # Architectures the APT repository publishes an index for. The package is
 # Architecture: all, but APT only reads the index for its own architecture.

@@ -5,26 +5,26 @@ Codename: stable
 Architectures: amd64 arm64 armhf i386 all
 Components: main
 Description: FSpotify music player packages
-Date: Wed, 14 Oct 2026 06:24:58 +0000
+Date: Mon, 19 Oct 2026 19:01:09 +0000
 MD5Sum:
- 8d9ae86ab7ec89c814f3a5e133044628          653 main/binary-all/Packages
- ae8ebbc062749aadc2c5c602dee86869          457 main/binary-all/Packages.gz
- 8d9ae86ab7ec89c814f3a5e133044628          653 main/binary-amd64/Packages
- ae8ebbc062749aadc2c5c602dee86869          457 main/binary-amd64/Packages.gz
- 8d9ae86ab7ec89c814f3a5e133044628          653 main/binary-arm64/Packages
- ae8ebbc062749aadc2c5c602dee86869          457 main/binary-arm64/Packages.gz
- 8d9ae86ab7ec89c814f3a5e133044628          653 main/binary-armhf/Packages
- ae8ebbc062749aadc2c5c602dee86869          457 main/binary-armhf/Packages.gz
- 8d9ae86ab7ec89c814f3a5e133044628          653 main/binary-i386/Packages
- ae8ebbc062749aadc2c5c602dee86869          457 main/binary-i386/Packages.gz
+ f61f8a4c5212db8d304cd60054ed3a36          664 main/binary-all/Packages
+ 89d6d7a1688057b4001d837465c3bf9e          470 main/binary-all/Packages.gz
+ f61f8a4c5212db8d304cd60054ed3a36          664 main/binary-amd64/Packages
+ 89d6d7a1688057b4001d837465c3bf9e          470 main/binary-amd64/Packages.gz
+ f61f8a4c5212db8d304cd60054ed3a36          664 main/binary-arm64/Packages
+ 89d6d7a1688057b4001d837465c3bf9e          470 main/binary-arm64/Packages.gz
+ f61f8a4c5212db8d304cd60054ed3a36          664 main/binary-armhf/Packages
+ 89d6d7a1688057b4001d837465c3bf9e          470 main/binary-armhf/Packages.gz
+ f61f8a4c5212db8d304cd60054ed3a36          664 main/binary-i386/Packages
+ 89d6d7a1688057b4001d837465c3bf9e          470 main/binary-i386/Packages.gz
 SHA256:
- e5a830780f68a560604360d809a425b40b45c20694dddc6ccacce058921f7c52          653 main/binary-all/Packages
- 5a13a29ba5ff846c46a3f2830553363db42d2f75ea9cbc0877678046b24e531a          457 main/binary-all/Packages.gz
- e5a830780f68a560604360d809a425b40b45c20694dddc6ccacce058921f7c52          653 main/binary-amd64/Packages
- 5a13a29ba5ff846c46a3f2830553363db42d2f75ea9cbc0877678046b24e531a          457 main/binary-amd64/Packages.gz
- e5a830780f68a560604360d809a425b40b45c20694dddc6ccacce058921f7c52          653 main/binary-arm64/Packages
- 5a13a29ba5ff846c46a3f2830553363db42d2f75ea9cbc0877678046b24e531a          457 main/binary-arm64/Packages.gz
- e5a830780f68a560604360d809a425b40b45c20694dddc6ccacce058921f7c52          653 main/binary-armhf/Packages
- 5a13a29ba5ff846c46a3f2830553363db42d2f75ea9cbc0877678046b24e531a          457 main/binary-armhf/Packages.gz
- e5a830780f68a560604360d809a425b40b45c20694dddc6ccacce058921f7c52          653 main/binary-i386/Packages
- 5a13a29ba5ff846c46a3f2830553363db42d2f75ea9cbc0877678046b24e531a          457 main/binary-i386/Packages.gz
+ e2a5ec39644d4140da2cd48ef5a0cc589af6259f3df4ed2cbc8d277024d28224          664 main/binary-all/Packages
+ 55fee35eaee801bd68a058bc47190e03e8e345da7e03bdd722e29269243f9cee          470 main/binary-all/Packages.gz
+ e2a5ec39644d4140da2cd48ef5a0cc589af6259f3df4ed2cbc8d277024d28224          664 main/binary-amd64/Packages
+ 55fee35eaee801bd68a058bc47190e03e8e345da7e03bdd722e29269243f9cee          470 main/binary-amd64/Packages.gz
+ e2a5ec39644d4140da2cd48ef5a0cc589af6259f3df4ed2cbc8d277024d28224          664 main/binary-arm64/Packages
+ 55fee35eaee801bd68a058bc47190e03e8e345da7e03bdd722e29269243f9cee          470 main/binary-arm64/Packages.gz
+ e2a5ec39644d4140da2cd48ef5a0cc589af6259f3df4ed2cbc8d277024d28224          664 main/binary-armhf/Packages
+ 55fee35eaee801bd68a058bc47190e03e8e345da7e03bdd722e29269243f9cee          470 main/binary-armhf/Packages.gz
+ e2a5ec39644d4140da2cd48ef5a0cc589af6259f3df4ed2cbc8d277024d28224          664 main/binary-i386/Packages
+ 55fee35eaee801bd68a058bc47190e03e8e345da7e03bdd722e29269243f9cee          470 main/binary-i386/Packages.gz
